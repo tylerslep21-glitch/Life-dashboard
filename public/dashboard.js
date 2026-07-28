@@ -20,6 +20,14 @@ function fmtDate(iso) {
   var d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+// For calendar-day-only values (YYYY-MM-DD, or a Date built from UTC math with no
+// real time-of-day) - rendering these in the viewer's local timezone can shift the
+// displayed day backward for negative UTC offsets. Force UTC so the date always
+// matches the underlying calendar date, not a local-time reinterpretation of it.
+function fmtDateOnly(iso) {
+  var d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
 
 // ---- line chart (ported from the artifact) ----
 function renderLine(id, series, dates, xTicks) {
@@ -160,7 +168,8 @@ var currentSubscriptions = [];
 
 function nextRenewal(purchaseDate, cadence) {
   if (!purchaseDate) return null;
-  var d = new Date(purchaseDate + 'T00:00:00Z');
+  var d = new Date(purchaseDate); // API returns a full ISO timestamp already
+  if (isNaN(d.getTime())) return null;
   var now = new Date();
   var guard = 0;
   while (d <= now && guard < 1000) {
@@ -192,7 +201,7 @@ function renderSubscriptionsList() {
     var monthly = s.cadence === 'yearly' ? Number(s.amount) / 12 : Number(s.amount);
     totalMonthly += monthly;
     var renewal = nextRenewal(s.purchase_date, s.cadence);
-    var renewalStr = renewal ? ' &middot; renews ' + fmtDate(renewal.toISOString()) : '';
+    var renewalStr = renewal ? ' &middot; renews ' + fmtDateOnly(renewal.toISOString()) : '';
     var label = (s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo') + renewalStr;
     return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
   });
@@ -300,7 +309,7 @@ async function loadFinanceAndRobinhood() {
 async function loadWeekView() {
   var weekOfStr = isoDate(selectedWeekStart);
   var weekLabelEl = document.getElementById('week-label');
-  weekLabelEl.textContent = 'Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  weekLabelEl.textContent = 'Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 
   document.getElementById('week-prev').disabled = earliestWeekStart && selectedWeekStart <= earliestWeekStart;
   document.getElementById('week-next').disabled = selectedWeekStart >= currentWeekStart;
@@ -403,7 +412,7 @@ function renderRobinhoodWidgets() {
     totalEl.textContent = fmtDollar(snap.total_value, { cents: true });
     var history = snap.history || [];
     var series = history.map(function (h) { return Number(h.value); });
-    var dates = history.map(function (h) { return fmtDate(h.date); });
+    var dates = history.map(function (h) { return fmtDateOnly(h.date); });
     if (series.length >= 2) {
       var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
       badgeEl.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 30d';
@@ -442,11 +451,23 @@ function addCardRow(label, balance) {
   cardsRows.appendChild(row);
 }
 
+var TRANSACTION_CATEGORIES = [
+  'Subscriptions', 'Gas', 'Travel', 'Online Retail', 'Retail', 'Groceries',
+  'Personal Transfers', 'Dining', 'Home/Car', 'Entertainment', 'Health/Medical',
+  'Utilities', 'Gift', 'Other',
+];
+
+function categorySelectHTML(selected) {
+  return TRANSACTION_CATEGORIES.map(function (c) {
+    return '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>';
+  }).join('');
+}
+
 function addTransactionRow(category, amount) {
   var row = document.createElement('div');
   row.className = 'repeat-row transaction-row';
   row.innerHTML =
-    '<input type="text" placeholder="Category" class="txn-category" value="' + (category || '') + '">' +
+    '<select class="txn-category">' + categorySelectHTML(category) + '</select>' +
     '<input type="number" step="0.01" placeholder="Amount" class="txn-amount" value="' + (amount != null ? amount : '') + '">' +
     '<button type="button" class="remove-row">&times;</button>';
   row.querySelector('.remove-row').addEventListener('click', function () { row.remove(); });
@@ -516,6 +537,89 @@ form.addEventListener('submit', async function (e) {
     statusEl.textContent = 'Failed to save: ' + err.message;
     statusEl.className = 'form-status error';
   }
+});
+
+// ---- edit/delete transactions for the selected week ----
+var txnOverlay = document.getElementById('transactions-modal-overlay');
+
+async function renderTransactionsManageList() {
+  var el = document.getElementById('transactions-manage-list');
+  document.getElementById('transactions-modal-title').textContent =
+    'Transactions — Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  var entries;
+  try {
+    entries = await getJSON('/api/finance/entries-in-week?date=' + isoDate(selectedWeekStart));
+  } catch (err) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">Failed to load.</p>';
+    return;
+  }
+  var anyTxn = entries.some(function (e) { return (e.transactions || []).length; });
+  if (!anyTxn) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No transactions logged this week.</p>';
+    return;
+  }
+  el.innerHTML = entries.flatMap(function (entry) {
+    return (entry.transactions || []).map(function (t, idx) {
+      return (
+        '<div class="repeat-row transaction-row" data-entry-id="' + entry.id + '" data-idx="' + idx + '">' +
+          '<select class="txn-category">' + categorySelectHTML(t.category) + '</select>' +
+          '<input type="number" step="0.01" class="txn-amount" value="' + t.amount + '">' +
+          '<button type="button" class="remove-row">&times;</button>' +
+        '</div>'
+      );
+    });
+  }).join('');
+
+  el.querySelectorAll('.transaction-row').forEach(function (row) {
+    var entryId = row.dataset.entryId;
+    var idx = Number(row.dataset.idx);
+    var entry = entries.find(function (e) { return String(e.id) === entryId; });
+
+    function saveRow() {
+      var updated = entry.transactions.slice();
+      updated[idx] = {
+        category: row.querySelector('.txn-category').value,
+        amount: parseFloat(row.querySelector('.txn-amount').value) || 0,
+      };
+      return fetch('/api/finance/' + entryId + '/transactions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: updated }),
+      });
+    }
+
+    row.querySelector('.txn-category').addEventListener('change', async function () {
+      await saveRow();
+      await loadWeekView();
+    });
+    row.querySelector('.txn-amount').addEventListener('change', async function () {
+      await saveRow();
+      await loadWeekView();
+    });
+    row.querySelector('.remove-row').addEventListener('click', async function () {
+      var updated = entry.transactions.slice();
+      updated.splice(idx, 1);
+      await fetch('/api/finance/' + entryId + '/transactions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions: updated }),
+      });
+      await loadWeekView();
+      renderTransactionsManageList();
+    });
+  });
+}
+
+document.getElementById('open-transactions-form').addEventListener('click', function () {
+  document.getElementById('transactions-form-status').textContent = '';
+  renderTransactionsManageList();
+  txnOverlay.classList.add('open');
+});
+document.getElementById('cancel-transactions-form').addEventListener('click', function () {
+  txnOverlay.classList.remove('open');
+});
+txnOverlay.addEventListener('click', function (e) {
+  if (e.target === txnOverlay) txnOverlay.classList.remove('open');
 });
 
 // ---- boot ----

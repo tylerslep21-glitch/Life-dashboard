@@ -577,6 +577,16 @@
   align-items: center;
 }
 .repeat-row input { flex: 1; }
+.repeat-row select {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.9rem;
+}
 .repeat-row .remove-row {
   flex: 0 0 auto;
   background: transparent;
@@ -691,6 +701,15 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 0.9rem;
 }
+
+.section-divider {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--border);
+  margin: 0.3rem 0;
+}
+
+.week-nav-box .week-nav { margin-bottom: 0; }
 
 .week-label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;

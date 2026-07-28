@@ -41,12 +41,17 @@
       <ul class="breakdown" id="subscriptions-list"></ul>
     </section>
 
-    <section class="module span-3">
+    <div class="section-divider"></div>
+
+    <section class="module span-3 week-nav-box">
       <div class="week-nav">
         <button type="button" class="week-arrow" id="week-prev" aria-label="Previous week">&larr;</button>
         <span class="week-label" id="week-label">&mdash;</span>
         <button type="button" class="week-arrow" id="week-next" aria-label="Next week">&rarr;</button>
       </div>
+    </section>
+
+    <section class="module span-3">
       <div class="stat-grid" style="margin-bottom: 0;">
         <div class="stat">
           <span class="stat-label">Net worth</span>
@@ -73,7 +78,10 @@
     </section>
 
     <section class="module viz-root">
-      <div class="module-head"><h2>Spending by category</h2></div>
+      <div class="module-head">
+        <h2>Spending by category</h2>
+        <button type="button" class="icon-btn" id="open-transactions-form" aria-label="Edit transactions">+</button>
+      </div>
       <div class="bar-chart" id="spending-bars"></div>
     </section>
 
@@ -200,6 +208,17 @@
       </div>
       <div class="form-status" id="subscription-form-status"></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="transactions-modal-overlay">
+  <div class="modal">
+    <h2 id="transactions-modal-title">Transactions</h2>
+    <div id="transactions-manage-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="cancel-transactions-form">Close</button>
+    </div>
+    <div class="form-status" id="transactions-form-status"></div>
   </div>
 </div>
 

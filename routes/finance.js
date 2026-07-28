@@ -68,6 +68,37 @@ router.get('/week', async (req, res) => {
   });
 });
 
+// Raw entries (with ids) for a given week - lets the frontend locate a specific
+// transaction (which entry it lives in) so it can be edited or deleted.
+router.get('/entries-in-week', async (req, res) => {
+  const anchor = req.query.date ? new Date(req.query.date) : new Date();
+  if (isNaN(anchor.getTime())) return res.status(400).json({ error: 'invalid date' });
+  const start = weekStart(anchor);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+
+  const { rows } = await pool.query(
+    'SELECT id, logged_at, transactions FROM finance_entries WHERE logged_at >= $1 AND logged_at < $2 ORDER BY logged_at ASC',
+    [start.toISOString(), end.toISOString()]
+  );
+  res.json(rows);
+});
+
+// Replaces one entry's transactions array wholesale - used to edit or delete a
+// single transaction (frontend sends back the whole modified array).
+router.patch('/:id/transactions', async (req, res) => {
+  const { transactions } = req.body;
+  if (!Array.isArray(transactions)) {
+    return res.status(400).json({ error: 'transactions (array) is required' });
+  }
+  const { rows } = await pool.query(
+    'UPDATE finance_entries SET transactions = $1 WHERE id = $2 RETURNING *',
+    [JSON.stringify(transactions), req.params.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'not found' });
+  res.json(rows[0]);
+});
+
 // Earliest week that has any data, so the frontend can disable "prev" past it.
 router.get('/earliest-week', async (req, res) => {
   const { rows } = await pool.query('SELECT MIN(logged_at) AS min_date FROM finance_entries');
