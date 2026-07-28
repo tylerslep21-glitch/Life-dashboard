@@ -120,11 +120,13 @@ async function loadCalendar() {
     var stamp = document.getElementById('calendar-sync-stamp');
     stamp.textContent = 'Synced ' + new Date(data.fetched_at).toLocaleString();
 
+    var windowEnd = Date.now() + 10 * 24 * 60 * 60 * 1000; // next 10 days
     var all = []
       .concat((data.canvas.events || []).map(function (e) { return Object.assign({}, e, { source: 'Canvas' }); }))
       .concat((data.personal.events || []).map(function (e) { return Object.assign({}, e, { source: 'Personal' }); }))
+      .filter(function (e) { return new Date(e.start).getTime() <= windowEnd; })
       .sort(function (a, b) { return new Date(a.start) - new Date(b.start); })
-      .slice(0, 8);
+      .slice(0, 15); // whichever limit (10 days or 15 items) hits first
 
     var list = document.getElementById('calendar-events');
     var emptyWrap = document.getElementById('calendar-empty-states');
