@@ -809,16 +809,29 @@ document.getElementById('countdown-add-form').addEventListener('submit', async f
 async function loadAgentTracker() {
   var list = document.getElementById('agent-tracker-list');
   try {
-    var agents = await getJSON('/api/agent-tracker');
+    var agents = await getJSON('/api/agent-tracker?recurring=true');
     if (!agents.length) {
       list.innerHTML = '<li>No agents reporting yet</li>';
       return;
     }
     list.innerHTML = agents.map(function (a) {
+      var statusLower = (a.status_summary || '').toLowerCase();
+      var pillColor = statusLower.indexOf('error') !== -1 ? 'var(--critical)'
+        : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
+        : 'var(--good)';
+      var lastRun = new Date(a.last_run_at).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      });
       return (
-        '<li>' +
-          '<span>' + a.agent_name + '</span>' +
-          '<span class="amt">' + a.status_summary + ' &middot; ' + fmtDate(a.last_run_at) + '</span>' +
+        '<li style="display:block;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+            '<span style="font-weight:600;">' + a.agent_name + '</span>' +
+            '<span class="pill" style="background:' + pillColor + ';">' + a.status_summary + '</span>' +
+          '</div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:0.2rem;">' +
+            '<span>' + (a.action_taken || '&mdash;') + '</span>' +
+            '<span>' + lastRun + '</span>' +
+          '</div>' +
         '</li>'
       );
     }).join('');

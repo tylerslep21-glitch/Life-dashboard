@@ -54,14 +54,20 @@ CREATE TABLE IF NOT EXISTS countdowns (
 );
 
 -- One row per agent, overwritten each update - a status snapshot, not a log.
+-- status_summary holds the current status/KPI (e.g. "Active"); action_taken is a
+-- short phrase for what happened on the last run (e.g. "one sale, one purchase").
 CREATE TABLE IF NOT EXISTS agent_status (
   agent_name TEXT PRIMARY KEY,
   status_summary TEXT NOT NULL,
+  action_taken TEXT,
+  recurring BOOLEAN NOT NULL DEFAULT true,
   last_run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
+ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS action_taken TEXT;
+ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEFAULT true;
 `;
 
 async function migrate() {

@@ -8,24 +8,31 @@ const router = express.Router();
 // Basic Auth as everything else in this app.
 
 router.get('/', async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM agent_status ORDER BY agent_name ASC');
+  const onlyRecurring = req.query.recurring === 'true';
+  const { rows } = await pool.query(
+    onlyRecurring
+      ? 'SELECT * FROM agent_status WHERE recurring = true ORDER BY agent_name ASC'
+      : 'SELECT * FROM agent_status ORDER BY agent_name ASC'
+  );
   res.json(rows);
 });
 
 router.post('/', async (req, res) => {
-  const { agent_name, status_summary, last_run_at } = req.body;
+  const { agent_name, status_summary, action_taken, recurring, last_run_at } = req.body;
   if (!agent_name || !status_summary) {
     return res.status(400).json({ error: 'agent_name, status_summary are required' });
   }
   const { rows } = await pool.query(
-    `INSERT INTO agent_status (agent_name, status_summary, last_run_at, updated_at)
-     VALUES ($1, $2, COALESCE($3, now()), now())
+    `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, updated_at)
+     VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), now())
      ON CONFLICT (agent_name) DO UPDATE
        SET status_summary = EXCLUDED.status_summary,
+           action_taken = EXCLUDED.action_taken,
+           recurring = EXCLUDED.recurring,
            last_run_at = EXCLUDED.last_run_at,
            updated_at = now()
      RETURNING *`,
-    [agent_name, status_summary, last_run_at || null]
+    [agent_name, status_summary, action_taken || null, recurring, last_run_at || null]
   );
   res.status(201).json(rows[0]);
 });
