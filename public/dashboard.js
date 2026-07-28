@@ -1095,6 +1095,12 @@ async function loadTicker() {
   }
 }
 
+// ---- auto-reload for an always-on desk display ----
+// A full page reload (not a soft re-fetch) so every widget - calendar, ticker,
+// finance, everything - genuinely starts fresh, not just the ones with their
+// own setInterval above.
+setInterval(function () { location.reload(); }, 3 * 60 * 1000);
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
