@@ -1,10 +1,17 @@
 const { Pool } = require('pg');
 
+// Railway's private network Postgres connection (host ends in .railway.internal)
+// does not use SSL - forcing it hangs the connection instead of failing cleanly.
+// Railway's public proxy connection (host contains rlwy.net, e.g. DATABASE_PUBLIC_URL
+// used by local scripts) does need SSL. Any other host (e.g. a local dev Postgres)
+// defaults to no SSL.
+const url = process.env.DATABASE_URL || '';
+const needsSSL = url.includes('rlwy.net') && !url.includes('.railway.internal');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway')
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: needsSSL ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 10000,
 });
 
 const SCHEMA = `

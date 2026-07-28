@@ -38,7 +38,14 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-migrate()
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ]);
+}
+
+withTimeout(migrate(), 15000, 'DB migration')
   .then(() => {
     app.listen(PORT, () => console.log(`Life Dashboard listening on :${PORT}`));
   })
