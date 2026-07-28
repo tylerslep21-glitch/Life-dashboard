@@ -31,6 +31,9 @@ router.get('/history/:label', async (req, res) => {
 router.get('/as-of', async (req, res) => {
   const asOf = req.query.date ? new Date(req.query.date) : new Date();
   if (isNaN(asOf.getTime())) return res.status(400).json({ error: 'invalid date' });
+  // A bare YYYY-MM-DD parses to midnight UTC, which would exclude that same day's
+  // own snapshots (logged later in the day) - extend the cutoff to end-of-day.
+  if (req.query.date) asOf.setUTCHours(23, 59, 59, 999);
 
   const { rows } = await pool.query(`
     SELECT DISTINCT ON (account_label) *
