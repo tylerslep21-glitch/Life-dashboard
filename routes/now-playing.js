@@ -13,8 +13,14 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { title, artist, album, artwork_url } = req.body;
+  const { title, artist, album } = req.body;
+  let { artwork_url } = req.body;
   if (!title) return res.status(400).json({ error: 'title is required' });
+
+  // iOS Shortcuts' Base64 Encode wraps output with \r\n every 76 chars (MIME-style
+  // line wrapping), which breaks a data URI - strip all whitespace before storing.
+  if (artwork_url) artwork_url = artwork_url.replace(/\s+/g, '');
+
   const { rows } = await pool.query(
     `INSERT INTO now_playing (id, title, artist, album, artwork_url, updated_at)
      VALUES (1, $1, $2, $3, $4, now())
