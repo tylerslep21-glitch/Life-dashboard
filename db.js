@@ -66,6 +66,17 @@ CREATE TABLE IF NOT EXISTS agent_status (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Single-row table (id always 1) - the latest push from the Now Playing
+-- Shortcuts automation overwrites this row, it's not a history.
+CREATE TABLE IF NOT EXISTS now_playing (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  title TEXT,
+  artist TEXT,
+  album TEXT,
+  artwork_url TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS todos (
   id SERIAL PRIMARY KEY,
   text TEXT NOT NULL,

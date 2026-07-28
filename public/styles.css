@@ -892,3 +892,44 @@
   text-decoration: line-through;
   color: var(--muted);
 }
+
+/* --- Now Playing card --- */
+.nowplaying-card { padding: 0; overflow: hidden; }
+.nowplaying-photo {
+  position: relative;
+  min-height: 11rem;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--paper-raised);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem 1.1rem;
+}
+.nowplaying-photo.has-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.6) 100%);
+  pointer-events: none;
+}
+.nowplaying-photo:not(.has-art) .eyebrow { color: var(--muted) !important; opacity: 1 !important; }
+.nowplaying-bottom { position: relative; z-index: 1; }
+.nowplaying-title {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.nowplaying-artist {
+  display: block;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.nowplaying-photo:not(.has-art) .nowplaying-title { color: var(--ink); text-shadow: none; }
+.nowplaying-photo:not(.has-art) .nowplaying-artist { color: var(--muted); text-shadow: none; }

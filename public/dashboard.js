@@ -1050,6 +1050,34 @@ async function loadTicker() {
   }
 }
 
+// ---- Now Playing (pushed by an iPhone Shortcuts Automation) ----
+async function loadNowPlaying() {
+  var photoEl = document.getElementById('nowplaying-photo');
+  var titleEl = document.getElementById('nowplaying-title');
+  var artistEl = document.getElementById('nowplaying-artist');
+  try {
+    var np = await getJSON('/api/now-playing');
+    if (!np) {
+      photoEl.className = 'nowplaying-photo';
+      photoEl.style.backgroundImage = '';
+      titleEl.textContent = 'Nothing reported yet';
+      artistEl.textContent = '';
+      return;
+    }
+    if (np.artwork_url) {
+      photoEl.className = 'nowplaying-photo has-art';
+      photoEl.style.backgroundImage = 'url("' + np.artwork_url + '")';
+    } else {
+      photoEl.className = 'nowplaying-photo';
+      photoEl.style.backgroundImage = '';
+    }
+    titleEl.textContent = np.title;
+    artistEl.textContent = [np.artist, np.album].filter(Boolean).join(' — ');
+  } catch (err) {
+    titleEl.textContent = 'Failed to load';
+  }
+}
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
@@ -1057,5 +1085,6 @@ loadSubscriptions();
 loadExams();
 loadCountdowns();
 loadAgentTracker();
+loadNowPlaying();
 loadTodos();
 loadFinanceAndRobinhood();
