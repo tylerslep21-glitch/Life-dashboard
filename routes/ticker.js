@@ -24,6 +24,7 @@ async function fetchHeadlines(feed) {
       type: 'headline',
       source: feed.source,
       text: item.title,
+      link: item.link || null,
     }));
   } catch (err) {
     return [];
@@ -46,6 +47,7 @@ async function fetchIndex(index) {
       label: index.label,
       price,
       changePct,
+      link: `https://finance.yahoo.com/quote/${encodeURIComponent(index.symbol)}`,
     };
   } catch (err) {
     return null;

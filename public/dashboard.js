@@ -1012,22 +1012,29 @@ async function loadTicker() {
     var data = await getJSON('/api/ticker');
     var pieces = [];
 
+    function tickerTag(link) {
+      return link ? '<a class="ticker-item" href="' + link + '" target="_blank" rel="noopener">' : '<span class="ticker-item">';
+    }
+    function tickerClose(link) {
+      return link ? '</a>' : '</span>';
+    }
+
     data.indices.forEach(function (idx) {
       var up = idx.changePct >= 0;
       pieces.push(
-        '<span class="ticker-item">' +
+        tickerTag(idx.link) +
           '<span class="ticker-index-name">' + idx.label + '</span>' +
           '<span>' + fmtDollar(idx.price, { cents: true }) + '</span>' +
           '<span class="' + (up ? 'ticker-index-up' : 'ticker-index-down') + '">' +
             (up ? '&#9650; ' : '&#9660; ') + Math.abs(idx.changePct).toFixed(2) + '%' +
           '</span>' +
-        '</span>'
+        tickerClose(idx.link)
       );
     });
 
     data.headlines.forEach(function (h) {
       pieces.push(
-        '<span class="ticker-item"><span class="ticker-source">' + h.source + '</span><span>' + h.text + '</span></span>'
+        tickerTag(h.link) + '<span class="ticker-source">' + h.source + '</span><span>' + h.text + '</span>' + tickerClose(h.link)
       );
     });
 

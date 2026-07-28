@@ -53,7 +53,7 @@
     color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
-    padding: 2.5rem 1.5rem 4rem;
+    padding: 4rem 1.5rem 4rem;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
@@ -73,7 +73,7 @@
     height: 100%;
     width: max-content;
     white-space: nowrap;
-    animation: ticker-scroll 90s linear infinite;
+    animation: ticker-scroll 220s linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
     .ticker-track { animation: none; overflow-x: auto; }
@@ -93,8 +93,10 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     font-size: 0.78rem;
     color: var(--paper);
+    text-decoration: none;
     border-right: 1px solid rgba(255,255,255,0.15);
   }
+  a.ticker-item:hover { text-decoration: underline; opacity: 0.9; cursor: pointer; }
   .ticker-item .ticker-source {
     text-transform: uppercase;
     letter-spacing: 0.05em;
