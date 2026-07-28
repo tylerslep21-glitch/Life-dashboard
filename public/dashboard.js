@@ -1005,7 +1005,46 @@ document.getElementById('todo-add-form').addEventListener('submit', async functi
 // without requiring a manual page refresh.
 setInterval(loadTodos, 5 * 60 * 1000);
 
+// ---- News/stocks ticker ----
+async function loadTicker() {
+  var track = document.getElementById('ticker-track');
+  try {
+    var data = await getJSON('/api/ticker');
+    var pieces = [];
+
+    data.indices.forEach(function (idx) {
+      var up = idx.changePct >= 0;
+      pieces.push(
+        '<span class="ticker-item">' +
+          '<span class="ticker-index-name">' + idx.label + '</span>' +
+          '<span>' + fmtDollar(idx.price, { cents: true }) + '</span>' +
+          '<span class="' + (up ? 'ticker-index-up' : 'ticker-index-down') + '">' +
+            (up ? '&#9650; ' : '&#9660; ') + Math.abs(idx.changePct).toFixed(2) + '%' +
+          '</span>' +
+        '</span>'
+      );
+    });
+
+    data.headlines.forEach(function (h) {
+      pieces.push(
+        '<span class="ticker-item"><span class="ticker-source">' + h.source + '</span><span>' + h.text + '</span></span>'
+      );
+    });
+
+    if (!pieces.length) {
+      track.innerHTML = '<span class="ticker-loading">No headlines available right now</span>';
+      return;
+    }
+
+    // Duplicate once so the scroll loop (0 to -50%) is seamless regardless of content length.
+    track.innerHTML = pieces.join('') + pieces.join('');
+  } catch (err) {
+    track.innerHTML = '<span class="ticker-loading">Ticker failed to load</span>';
+  }
+}
+
 // ---- boot ----
+loadTicker();
 loadCalendar();
 loadSubscriptions();
 loadExams();

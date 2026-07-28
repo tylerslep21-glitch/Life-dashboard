@@ -58,6 +58,59 @@
     -webkit-font-smoothing: antialiased;
   }
 
+  .ticker-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    width: 100%;
+    height: 2.1rem;
+    background: var(--ink);
+    overflow: hidden;
+  }
+  .ticker-track {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    width: max-content;
+    white-space: nowrap;
+    animation: ticker-scroll 90s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track { animation: none; overflow-x: auto; }
+  }
+  .ticker-loading {
+    color: var(--paper);
+    opacity: 0.7;
+    font-size: 0.78rem;
+    padding: 0 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 1.4rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 0.78rem;
+    color: var(--paper);
+    border-right: 1px solid rgba(255,255,255,0.15);
+  }
+  .ticker-item .ticker-source {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    opacity: 0.65;
+    font-size: 0.68rem;
+  }
+  .ticker-item .ticker-index-up { color: #6FCF7A; font-weight: 700; }
+  .ticker-item .ticker-index-down { color: #F2836B; font-weight: 700; }
+  .ticker-item .ticker-index-name { font-weight: 700; opacity: 0.9; }
+
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
   .sans {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
@@ -801,6 +854,8 @@
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  grid-auto-flow: row dense;
   gap: 0.4rem;
 }
 .todo-row {
