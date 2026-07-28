@@ -40,6 +40,27 @@ CREATE TABLE IF NOT EXISTS robinhood_snapshots (
   history JSONB NOT NULL DEFAULT '[]'
 );
 
+CREATE TABLE IF NOT EXISTS exams (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  event_date DATE NOT NULL,
+  course TEXT
+);
+
+CREATE TABLE IF NOT EXISTS countdowns (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  target_date DATE NOT NULL
+);
+
+-- One row per agent, overwritten each update - a status snapshot, not a log.
+CREATE TABLE IF NOT EXISTS agent_status (
+  agent_name TEXT PRIMARY KEY,
+  status_summary TEXT NOT NULL,
+  last_run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
 `;
 

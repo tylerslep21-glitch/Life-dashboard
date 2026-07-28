@@ -624,7 +624,213 @@ txnOverlay.addEventListener('click', function (e) {
   if (e.target === txnOverlay) txnOverlay.classList.remove('open');
 });
 
+// ---- Exams / Big Projects ----
+var currentExams = [];
+
+async function loadExams() {
+  try {
+    currentExams = await getJSON('/api/exams');
+    renderExamsList();
+  } catch (err) {
+    document.getElementById('exams-list').innerHTML = '<li>Failed to load</li>';
+  }
+}
+
+function daysUntil(dateStr) {
+  var target = new Date(dateStr);
+  var now = new Date();
+  var startOfToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  var startOfTarget = Date.UTC(target.getUTCFullYear(), target.getUTCMonth(), target.getUTCDate());
+  return Math.round((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
+}
+
+function renderExamsList() {
+  var list = document.getElementById('exams-list');
+  var upcoming = currentExams.filter(function (e) { return daysUntil(e.event_date) >= 0; });
+  if (!upcoming.length) {
+    list.innerHTML = '<div class="empty-state">Nothing upcoming</div>';
+    return;
+  }
+  list.innerHTML = upcoming.map(function (e) {
+    var d = daysUntil(e.event_date);
+    var when = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d + ' days';
+    return (
+      '<li class="event-item">' +
+        '<span class="event-date">' + fmtDateOnly(e.event_date) + '</span>' +
+        '<span class="event-title">' + e.name + (e.course ? ' &middot; ' + e.course : '') + '</span>' +
+        '<span style="margin-left:auto;font-size:0.7rem;color:var(--muted);">' + when + '</span>' +
+      '</li>'
+    );
+  }).join('');
+}
+
+function renderExamsManageList() {
+  var el = document.getElementById('exams-manage-list');
+  if (!currentExams.length) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No exams/projects yet.</p>';
+    return;
+  }
+  el.innerHTML = currentExams.map(function (e) {
+    return (
+      '<div class="sub-row" data-id="' + e.id + '">' +
+        '<span class="sub-name">' + e.name + (e.course ? ' &mdash; ' + e.course : '') + ' &middot; ' + fmtDateOnly(e.event_date) + '</span>' +
+        '<button type="button" class="sub-remove" data-id="' + e.id + '" aria-label="Delete">&times;</button>' +
+      '</div>'
+    );
+  }).join('');
+  el.querySelectorAll('.sub-remove').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      await fetch('/api/exams/' + btn.dataset.id, { method: 'DELETE' });
+      await loadExams();
+      renderExamsManageList();
+    });
+  });
+}
+
+var examsOverlay = document.getElementById('exams-modal-overlay');
+document.getElementById('open-exams-form').addEventListener('click', function () {
+  document.getElementById('exam-form-status').textContent = '';
+  renderExamsManageList();
+  examsOverlay.classList.add('open');
+});
+document.getElementById('cancel-exam-form').addEventListener('click', function () {
+  examsOverlay.classList.remove('open');
+});
+examsOverlay.addEventListener('click', function (e) { if (e.target === examsOverlay) examsOverlay.classList.remove('open'); });
+
+document.getElementById('exam-add-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('exam-form-status');
+  var name = document.getElementById('exam-name-input').value.trim();
+  var date = document.getElementById('exam-date-input').value;
+  var course = document.getElementById('exam-course-input').value.trim();
+  try {
+    var res = await fetch('/api/exams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, event_date: date, course: course || null }),
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    statusEl.textContent = 'Added.';
+    statusEl.className = 'form-status ok';
+    document.getElementById('exam-add-form').reset();
+    await loadExams();
+    renderExamsManageList();
+  } catch (err) {
+    statusEl.textContent = 'Failed to add: ' + err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+// ---- Countdowns ----
+var currentCountdowns = [];
+
+async function loadCountdowns() {
+  try {
+    currentCountdowns = await getJSON('/api/countdowns');
+    renderCountdownsList();
+  } catch (err) {
+    document.getElementById('countdowns-list').innerHTML = '<li>Failed to load</li>';
+  }
+}
+
+function renderCountdownsList() {
+  var list = document.getElementById('countdowns-list');
+  var upcoming = currentCountdowns.filter(function (c) { return daysUntil(c.target_date) >= 0; });
+  if (!upcoming.length) {
+    list.innerHTML = '<li>Nothing upcoming</li>';
+    return;
+  }
+  list.innerHTML = upcoming.map(function (c) {
+    var d = daysUntil(c.target_date);
+    var when = d === 0 ? 'Today' : d === 1 ? '1 day' : d + ' days';
+    return '<li><span>' + c.name + '</span><span class="amt"><strong>' + when + '</strong></span></li>';
+  }).join('');
+}
+
+function renderCountdownsManageList() {
+  var el = document.getElementById('countdowns-manage-list');
+  if (!currentCountdowns.length) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No countdowns yet.</p>';
+    return;
+  }
+  el.innerHTML = currentCountdowns.map(function (c) {
+    return (
+      '<div class="sub-row" data-id="' + c.id + '">' +
+        '<span class="sub-name">' + c.name + ' &mdash; ' + fmtDateOnly(c.target_date) + '</span>' +
+        '<button type="button" class="sub-remove" data-id="' + c.id + '" aria-label="Delete">&times;</button>' +
+      '</div>'
+    );
+  }).join('');
+  el.querySelectorAll('.sub-remove').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      await fetch('/api/countdowns/' + btn.dataset.id, { method: 'DELETE' });
+      await loadCountdowns();
+      renderCountdownsManageList();
+    });
+  });
+}
+
+var countdownsOverlay = document.getElementById('countdowns-modal-overlay');
+document.getElementById('open-countdowns-form').addEventListener('click', function () {
+  document.getElementById('countdown-form-status').textContent = '';
+  renderCountdownsManageList();
+  countdownsOverlay.classList.add('open');
+});
+document.getElementById('cancel-countdown-form').addEventListener('click', function () {
+  countdownsOverlay.classList.remove('open');
+});
+countdownsOverlay.addEventListener('click', function (e) { if (e.target === countdownsOverlay) countdownsOverlay.classList.remove('open'); });
+
+document.getElementById('countdown-add-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('countdown-form-status');
+  var name = document.getElementById('countdown-name-input').value.trim();
+  var date = document.getElementById('countdown-date-input').value;
+  try {
+    var res = await fetch('/api/countdowns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, target_date: date }),
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    statusEl.textContent = 'Added.';
+    statusEl.className = 'form-status ok';
+    document.getElementById('countdown-add-form').reset();
+    await loadCountdowns();
+    renderCountdownsManageList();
+  } catch (err) {
+    statusEl.textContent = 'Failed to add: ' + err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+// ---- AI Agent Tracker (read-only display - pushed by an external scheduled agent) ----
+async function loadAgentTracker() {
+  var list = document.getElementById('agent-tracker-list');
+  try {
+    var agents = await getJSON('/api/agent-tracker');
+    if (!agents.length) {
+      list.innerHTML = '<li>No agents reporting yet</li>';
+      return;
+    }
+    list.innerHTML = agents.map(function (a) {
+      return (
+        '<li>' +
+          '<span>' + a.agent_name + '</span>' +
+          '<span class="amt">' + a.status_summary + ' &middot; ' + fmtDate(a.last_run_at) + '</span>' +
+        '</li>'
+      );
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<li>Failed to load</li>';
+  }
+}
+
 // ---- boot ----
 loadCalendar();
 loadSubscriptions();
+loadExams();
+loadCountdowns();
+loadAgentTracker();
 loadFinanceAndRobinhood();

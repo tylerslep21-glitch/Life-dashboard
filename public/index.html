@@ -41,6 +41,27 @@
       <ul class="breakdown" id="subscriptions-list"></ul>
     </section>
 
+    <section class="module">
+      <div class="module-head">
+        <h2>Exams / Big Projects</h2>
+        <button type="button" class="icon-btn" id="open-exams-form" aria-label="Edit exams/projects">+</button>
+      </div>
+      <ul class="event-list" id="exams-list"></ul>
+    </section>
+
+    <section class="module">
+      <div class="module-head">
+        <h2>Countdowns</h2>
+        <button type="button" class="icon-btn" id="open-countdowns-form" aria-label="Edit countdowns">+</button>
+      </div>
+      <ul class="breakdown" id="countdowns-list"></ul>
+    </section>
+
+    <section class="module">
+      <div class="module-head"><h2>AI Agent Tracker</h2></div>
+      <ul class="breakdown" id="agent-tracker-list"></ul>
+    </section>
+
     <div class="section-divider"></div>
 
     <section class="module span-3 week-nav-box">
@@ -219,6 +240,58 @@
       <button type="button" class="btn btn-outline-only" id="cancel-transactions-form">Close</button>
     </div>
     <div class="form-status" id="transactions-form-status"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="exams-modal-overlay">
+  <div class="modal">
+    <h2>Exams / Big Projects</h2>
+    <div id="exams-manage-list"></div>
+
+    <form id="exam-add-form">
+      <div class="field-group">
+        <label for="exam-name-input">Name</label>
+        <input type="text" id="exam-name-input" required>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label for="exam-date-input">Date</label>
+          <input type="date" id="exam-date-input" required>
+        </div>
+        <div class="field-group">
+          <label for="exam-course-input">Course (optional)</label>
+          <input type="text" id="exam-course-input">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-exam-form">Close</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+      <div class="form-status" id="exam-form-status"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="countdowns-modal-overlay">
+  <div class="modal">
+    <h2>Countdowns</h2>
+    <div id="countdowns-manage-list"></div>
+
+    <form id="countdown-add-form">
+      <div class="field-group">
+        <label for="countdown-name-input">Name</label>
+        <input type="text" id="countdown-name-input" required>
+      </div>
+      <div class="field-group">
+        <label for="countdown-date-input">Target date</label>
+        <input type="date" id="countdown-date-input" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-countdown-form">Close</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+      <div class="form-status" id="countdown-form-status"></div>
+    </form>
   </div>
 </div>
 
