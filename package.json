@@ -1,0 +1,18 @@
+{
+  "name": "life-dashboard",
+  "version": "1.0.0",
+  "description": "Personal life dashboard: calendar, finances, net worth, Robinhood snapshots.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "node-ical": "^0.27.1"
+  }
+}
