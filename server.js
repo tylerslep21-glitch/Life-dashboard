@@ -36,6 +36,7 @@ app.use('/api/robinhood', require('./routes/robinhood'));
 app.use('/api/exams', require('./routes/exams'));
 app.use('/api/countdowns', require('./routes/countdowns'));
 app.use('/api/agent-tracker', require('./routes/agent-tracker'));
+app.use('/api/todos', require('./routes/todos'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

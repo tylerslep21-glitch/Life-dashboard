@@ -900,10 +900,116 @@ async function loadAgentTracker() {
   }
 }
 
+// ---- To-Do list (drag to reorder, check off, disappears an hour after checking) ----
+var currentTodos = [];
+var draggedTodoId = null;
+
+async function loadTodos() {
+  try {
+    currentTodos = await getJSON('/api/todos');
+    renderTodosList();
+  } catch (err) {
+    document.getElementById('todo-list').innerHTML = '<li>Failed to load</li>';
+  }
+}
+
+function renderTodosList() {
+  var list = document.getElementById('todo-list');
+  if (!currentTodos.length) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;padding:0.4rem;">Nothing on the list</li>';
+    return;
+  }
+  list.innerHTML = currentTodos.map(function (t) {
+    var checked = !!t.checked_at;
+    return (
+      '<li class="todo-row' + (checked ? ' checked' : '') + '" draggable="true" data-id="' + t.id + '">' +
+        '<span class="todo-drag-handle">&#9776;</span>' +
+        '<input type="checkbox" class="todo-checkbox"' + (checked ? ' checked' : '') + '>' +
+        '<span class="todo-text">' + t.text + '</span>' +
+      '</li>'
+    );
+  }).join('');
+
+  list.querySelectorAll('.todo-checkbox').forEach(function (cb) {
+    cb.addEventListener('change', async function () {
+      var row = cb.closest('.todo-row');
+      var id = row.dataset.id;
+      row.classList.toggle('checked', cb.checked);
+      await fetch('/api/todos/' + id + '/check', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checked: cb.checked }),
+      });
+    });
+  });
+
+  list.querySelectorAll('.todo-row').forEach(function (row) {
+    row.addEventListener('dragstart', function () {
+      draggedTodoId = row.dataset.id;
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', function () {
+      row.classList.remove('dragging');
+    });
+    row.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      var dragging = list.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      var rect = row.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      list.insertBefore(dragging, before ? row : row.nextSibling);
+    });
+    row.addEventListener('drop', async function (e) {
+      e.preventDefault();
+      var order = Array.from(list.querySelectorAll('.todo-row')).map(function (r) { return Number(r.dataset.id); });
+      await fetch('/api/todos/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: order }),
+      });
+    });
+  });
+}
+
+var todoOverlay = document.getElementById('todo-modal-overlay');
+document.getElementById('open-todo-form').addEventListener('click', function () {
+  document.getElementById('todo-form-status').textContent = '';
+  document.getElementById('todo-text-input').value = '';
+  todoOverlay.classList.add('open');
+});
+document.getElementById('cancel-todo-form').addEventListener('click', function () {
+  todoOverlay.classList.remove('open');
+});
+todoOverlay.addEventListener('click', function (e) { if (e.target === todoOverlay) todoOverlay.classList.remove('open'); });
+
+document.getElementById('todo-add-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('todo-form-status');
+  var text = document.getElementById('todo-text-input').value.trim();
+  try {
+    var res = await fetch('/api/todos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text }),
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    await loadTodos();
+    todoOverlay.classList.remove('open');
+  } catch (err) {
+    statusEl.textContent = 'Failed to add: ' + err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+// Periodically reload so checked-off items actually disappear an hour later
+// without requiring a manual page refresh.
+setInterval(loadTodos, 5 * 60 * 1000);
+
 // ---- boot ----
 loadCalendar();
 loadSubscriptions();
 loadExams();
 loadCountdowns();
 loadAgentTracker();
+loadTodos();
 loadFinanceAndRobinhood();

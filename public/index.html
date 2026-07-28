@@ -68,6 +68,14 @@
       <ul class="breakdown" id="agent-tracker-list"></ul>
     </section>
 
+    <section class="module">
+      <div class="module-head">
+        <h2>To-Do</h2>
+        <button type="button" class="icon-btn" id="open-todo-form" aria-label="Add a to-do">+</button>
+      </div>
+      <ul class="todo-list" id="todo-list"></ul>
+    </section>
+
     <div class="section-divider"></div>
 
     <section class="module span-3 week-nav-box">
@@ -305,6 +313,23 @@
         <button type="submit" class="btn btn-primary">Add</button>
       </div>
       <div class="form-status" id="countdown-form-status"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="todo-modal-overlay">
+  <div class="modal">
+    <h2>Add a to-do</h2>
+    <form id="todo-add-form">
+      <div class="field-group">
+        <label for="todo-text-input">What needs doing?</label>
+        <input type="text" id="todo-text-input" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-todo-form">Close</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+      <div class="form-status" id="todo-form-status"></div>
     </form>
   </div>
 </div>
