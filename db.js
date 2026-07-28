@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS exams (
 CREATE TABLE IF NOT EXISTS countdowns (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  target_date DATE NOT NULL
+  target_date DATE NOT NULL,
+  image_url TEXT
 );
 
 -- One row per agent, overwritten each update - a status snapshot, not a log.
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS agent_status (
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS action_taken TEXT;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
 `;
 
 async function migrate() {

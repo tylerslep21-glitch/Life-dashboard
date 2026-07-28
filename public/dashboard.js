@@ -730,22 +730,53 @@ async function loadCountdowns() {
     currentCountdowns = await getJSON('/api/countdowns');
     renderCountdownsList();
   } catch (err) {
-    document.getElementById('countdowns-list').innerHTML = '<li>Failed to load</li>';
+    document.getElementById('countdown-primary-name').textContent = 'Failed to load';
   }
 }
 
+function whenLabel(d) {
+  return d === 0 ? 'Today' : d === 1 ? '1 day' : d + ' days';
+}
+
 function renderCountdownsList() {
-  var list = document.getElementById('countdowns-list');
-  var upcoming = currentCountdowns.filter(function (c) { return daysUntil(c.target_date) >= 0; });
+  var photoEl = document.getElementById('countdown-photo');
+  var nameEl = document.getElementById('countdown-primary-name');
+  var daysEl = document.getElementById('countdown-primary-days');
+  var secondaryEl = document.getElementById('countdown-secondary');
+
+  var upcoming = currentCountdowns
+    .filter(function (c) { return daysUntil(c.target_date) >= 0; })
+    .sort(function (a, b) { return daysUntil(a.target_date) - daysUntil(b.target_date); })
+    .slice(0, 2);
+
   if (!upcoming.length) {
-    list.innerHTML = '<li>Nothing upcoming</li>';
+    photoEl.className = 'countdown-photo';
+    photoEl.style.backgroundImage = '';
+    nameEl.textContent = 'Nothing upcoming';
+    daysEl.textContent = '';
+    secondaryEl.style.display = 'none';
     return;
   }
-  list.innerHTML = upcoming.map(function (c) {
-    var d = daysUntil(c.target_date);
-    var when = d === 0 ? 'Today' : d === 1 ? '1 day' : d + ' days';
-    return '<li><span>' + c.name + '</span><span class="amt"><strong>' + when + '</strong></span></li>';
-  }).join('');
+
+  var primary = upcoming[0];
+  if (primary.image_url) {
+    photoEl.className = 'countdown-photo has-photo';
+    photoEl.style.backgroundImage = 'url("' + primary.image_url + '")';
+  } else {
+    photoEl.className = 'countdown-photo';
+    photoEl.style.backgroundImage = '';
+  }
+  nameEl.textContent = primary.name;
+  daysEl.textContent = whenLabel(daysUntil(primary.target_date));
+
+  if (upcoming[1]) {
+    secondaryEl.style.display = 'flex';
+    secondaryEl.innerHTML =
+      '<span>' + upcoming[1].name + '</span>' +
+      '<span class="amt">' + whenLabel(daysUntil(upcoming[1].target_date)) + '</span>';
+  } else {
+    secondaryEl.style.display = 'none';
+  }
 }
 
 function renderCountdownsManageList() {
@@ -782,16 +813,45 @@ document.getElementById('cancel-countdown-form').addEventListener('click', funct
 });
 countdownsOverlay.addEventListener('click', function (e) { if (e.target === countdownsOverlay) countdownsOverlay.classList.remove('open'); });
 
+function readFileAsDataURL(file) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onload = function () { resolve(reader.result); };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 document.getElementById('countdown-add-form').addEventListener('submit', async function (e) {
   e.preventDefault();
   var statusEl = document.getElementById('countdown-form-status');
   var name = document.getElementById('countdown-name-input').value.trim();
   var date = document.getElementById('countdown-date-input').value;
+  var urlInput = document.getElementById('countdown-image-url-input').value.trim();
+  var fileInput = document.getElementById('countdown-image-file-input');
+  var imageUrl = urlInput || null;
+
+  if (fileInput.files && fileInput.files[0]) {
+    var file = fileInput.files[0];
+    if (file.size > 4 * 1024 * 1024) {
+      statusEl.textContent = 'Photo is too large (max 4MB).';
+      statusEl.className = 'form-status error';
+      return;
+    }
+    try {
+      imageUrl = await readFileAsDataURL(file);
+    } catch (err) {
+      statusEl.textContent = 'Failed to read photo file.';
+      statusEl.className = 'form-status error';
+      return;
+    }
+  }
+
   try {
     var res = await fetch('/api/countdowns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name, target_date: date }),
+      body: JSON.stringify({ name: name, target_date: date, image_url: imageUrl }),
     });
     if (!res.ok) throw new Error('Server returned ' + res.status);
     statusEl.textContent = 'Added.';

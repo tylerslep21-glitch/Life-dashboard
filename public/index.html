@@ -49,12 +49,18 @@
       <ul class="event-list" id="exams-list"></ul>
     </section>
 
-    <section class="module">
-      <div class="module-head">
-        <h2>Countdowns</h2>
-        <button type="button" class="icon-btn" id="open-countdowns-form" aria-label="Edit countdowns">+</button>
+    <section class="module countdown-card" id="countdown-card">
+      <div class="countdown-photo" id="countdown-photo">
+        <div class="countdown-photo-top">
+          <span class="eyebrow" style="color: #fff; opacity: 0.85;">Countdowns</span>
+          <button type="button" class="icon-btn countdown-plus" id="open-countdowns-form" aria-label="Edit countdowns">+</button>
+        </div>
+        <div class="countdown-photo-bottom">
+          <span class="countdown-photo-name" id="countdown-primary-name">&mdash;</span>
+          <span class="countdown-photo-days" id="countdown-primary-days"></span>
+        </div>
       </div>
-      <ul class="breakdown" id="countdowns-list"></ul>
+      <div class="countdown-secondary" id="countdown-secondary"></div>
     </section>
 
     <section class="module">
@@ -285,6 +291,14 @@
       <div class="field-group">
         <label for="countdown-date-input">Target date</label>
         <input type="date" id="countdown-date-input" required>
+      </div>
+      <div class="field-group">
+        <label for="countdown-image-url-input">Photo URL (optional)</label>
+        <input type="url" id="countdown-image-url-input" placeholder="https://...">
+      </div>
+      <div class="field-group">
+        <label for="countdown-image-file-input">Or upload a photo (optional, max 4MB)</label>
+        <input type="file" id="countdown-image-file-input" accept="image/*">
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline-only" id="cancel-countdown-form">Close</button>

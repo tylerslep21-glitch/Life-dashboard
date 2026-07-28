@@ -9,13 +9,13 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { name, target_date } = req.body;
+  const { name, target_date, image_url } = req.body;
   if (!name || !target_date) {
     return res.status(400).json({ error: 'name, target_date are required' });
   }
   const { rows } = await pool.query(
-    'INSERT INTO countdowns (name, target_date) VALUES ($1, $2) RETURNING *',
-    [name, target_date]
+    'INSERT INTO countdowns (name, target_date, image_url) VALUES ($1, $2, $3) RETURNING *',
+    [name, target_date, image_url || null]
   );
   res.status(201).json(rows[0]);
 });

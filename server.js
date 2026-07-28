@@ -26,7 +26,7 @@ app.use((req, res, next) => {
   res.status(401).send('Authentication required.');
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '6mb' })); // room for a base64-encoded countdown photo
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/calendar', require('./routes/calendar'));
