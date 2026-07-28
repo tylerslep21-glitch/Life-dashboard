@@ -7,6 +7,51 @@ function renderClock() {
 renderClock();
 setInterval(renderClock, 60000);
 
+// ---- theme: dark after sunset, light after sunrise, based on real location ----
+var sunTimesCache = null; // {date: 'YYYY-MM-DD', sunrise: Date, sunset: Date}
+
+function applyThemeFromSunTimes() {
+  if (!sunTimesCache) return;
+  var now = new Date();
+  var isDark = now < sunTimesCache.sunrise || now > sunTimesCache.sunset;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+}
+
+function fetchSunTimes(lat, lng) {
+  var todayStr = new Date().toISOString().slice(0, 10);
+  if (sunTimesCache && sunTimesCache.date === todayStr) {
+    applyThemeFromSunTimes();
+    return;
+  }
+  fetch('https://api.sunrise-sunset.org/json?lat=' + lat + '&lng=' + lng + '&formatted=0')
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.status !== 'OK') return;
+      sunTimesCache = {
+        date: todayStr,
+        sunrise: new Date(data.results.sunrise),
+        sunset: new Date(data.results.sunset),
+      };
+      applyThemeFromSunTimes();
+    })
+    .catch(function () { /* leave theme on OS default if this fails */ });
+}
+
+function initSunTheme() {
+  if (!navigator.geolocation) return; // falls back to prefers-color-scheme media query
+  navigator.geolocation.getCurrentPosition(
+    function (pos) {
+      var lat = pos.coords.latitude, lng = pos.coords.longitude;
+      fetchSunTimes(lat, lng);
+      // Re-check every 10 min so an open page actually flips at the real moment,
+      // and re-fetch once the calendar date rolls over to a new day's times.
+      setInterval(function () { fetchSunTimes(lat, lng); }, 10 * 60 * 1000);
+    },
+    function () { /* permission denied or unavailable - leave theme on OS default */ }
+  );
+}
+initSunTheme();
+
 // ---- helpers ----
 function fmtDollar(v, opts) {
   opts = opts || {};
