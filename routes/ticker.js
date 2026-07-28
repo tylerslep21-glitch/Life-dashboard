@@ -7,7 +7,7 @@ const rssParser = new Parser({ timeout: 8000 });
 const FEEDS = [
   { url: 'http://feeds.bbci.co.uk/news/world/rss.xml', source: 'BBC' },
   { url: 'https://feeds.npr.org/1001/rss.xml', source: 'NPR' },
-  { url: 'https://www.espn.com/espn/rss/news', source: 'ESPN' },
+  { url: 'https://www.espn.com/espn/rss/news', source: 'ESPN', count: 2 },
   { url: 'http://feeds.bbci.co.uk/sport/rss.xml', source: 'BBC Sport' },
 ];
 
@@ -20,7 +20,7 @@ const INDICES = [
 async function fetchHeadlines(feed) {
   try {
     const parsed = await rssParser.parseURL(feed.url);
-    return (parsed.items || []).slice(0, 4).map((item) => ({
+    return (parsed.items || []).slice(0, feed.count || 4).map((item) => ({
       type: 'headline',
       source: feed.source,
       text: item.title,
