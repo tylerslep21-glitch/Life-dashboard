@@ -1051,6 +1051,31 @@ document.getElementById('todo-add-form').addEventListener('submit', async functi
 setInterval(loadTodos, 5 * 60 * 1000);
 
 // ---- News/stocks ticker ----
+// Driven by JS (requestAnimationFrame) rather than a CSS @keyframes animation -
+// CSS animations on a transform inside a position:sticky ancestor are unstable
+// on iOS Safari (confirmed: glitches in and out rather than scrolling smoothly).
+var tickerAnimId = null;
+var TICKER_CYCLE_SECONDS = 220; // full loop duration, matches the old CSS pace
+
+function startTickerScroll(track) {
+  if (tickerAnimId) cancelAnimationFrame(tickerAnimId);
+  var oneCopyWidth = track.scrollWidth / 2;
+  if (!oneCopyWidth) return;
+  var pxPerMs = oneCopyWidth / (TICKER_CYCLE_SECONDS * 1000);
+  var offset = 0;
+  var lastTs = null;
+
+  function step(ts) {
+    if (lastTs !== null) {
+      offset = (offset + pxPerMs * (ts - lastTs)) % oneCopyWidth;
+      track.style.transform = 'translateX(-' + offset + 'px)';
+    }
+    lastTs = ts;
+    tickerAnimId = requestAnimationFrame(step);
+  }
+  tickerAnimId = requestAnimationFrame(step);
+}
+
 async function loadTicker() {
   var track = document.getElementById('ticker-track');
   try {
@@ -1088,8 +1113,9 @@ async function loadTicker() {
       return;
     }
 
-    // Duplicate once so the scroll loop (0 to -50%) is seamless regardless of content length.
+    // Duplicate once so the scroll loop is seamless regardless of content length.
     track.innerHTML = pieces.join('') + pieces.join('');
+    startTickerScroll(track);
   } catch (err) {
     track.innerHTML = '<span class="ticker-loading">Ticker failed to load</span>';
   }
