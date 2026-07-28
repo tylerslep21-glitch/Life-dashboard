@@ -178,8 +178,22 @@ async function loadSubscriptions() {
   }
 }
 
-var latestFinance = null;
-var latestRobinhood = [];
+var latestFinance = null;   // still used by the "Add financial info" form to prefill
+var latestRobinhood = [];   // full history, drives the always-current Robinhood widgets
+
+// ---- week navigation state ----
+function mondayOf(date) {
+  var d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  var day = d.getUTCDay();
+  var diff = (day === 0 ? -6 : 1) - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d;
+}
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+var currentWeekStart = mondayOf(new Date());
+var earliestWeekStart = null; // fetched once at boot
+var selectedWeekStart = currentWeekStart;
 
 async function loadFinanceAndRobinhood() {
   try {
@@ -188,46 +202,85 @@ async function loadFinanceAndRobinhood() {
   try {
     latestRobinhood = await getJSON('/api/robinhood/latest');
   } catch (err) { latestRobinhood = []; }
+  try {
+    var earliest = await getJSON('/api/finance/earliest-week');
+    earliestWeekStart = earliest ? new Date(earliest.week_of + 'T00:00:00Z') : currentWeekStart;
+  } catch (err) { earliestWeekStart = currentWeekStart; }
 
-  renderNetWorthAndSpending();
   renderBankWidget();
   renderRobinhoodWidgets();
-  renderStatusRow();
+  await loadWeekView();
 }
 
-function renderNetWorthAndSpending() {
-  var bank = latestFinance ? Number(latestFinance.bank_balance) : 0;
-  var cards = latestFinance ? latestFinance.cards || [] : [];
-  var robinhoodTotal = latestRobinhood.reduce(function (sum, r) { return sum + Number(r.total_value); }, 0);
+async function loadWeekView() {
+  var weekOfStr = isoDate(selectedWeekStart);
+  var weekLabelEl = document.getElementById('week-label');
+  weekLabelEl.textContent = 'Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  document.getElementById('week-prev').disabled = earliestWeekStart && selectedWeekStart <= earliestWeekStart;
+  document.getElementById('week-next').disabled = selectedWeekStart >= currentWeekStart;
+
+  var weekData, robinhoodAsOf;
+  try {
+    weekData = await getJSON('/api/finance/week?date=' + weekOfStr);
+  } catch (err) {
+    weekData = { bank_balance: null, cards: [], income: 0, transactions: [], entry_count: 0 };
+  }
+  try {
+    var weekEnd = new Date(selectedWeekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    if (weekEnd > new Date()) weekEnd = new Date();
+    robinhoodAsOf = await getJSON('/api/robinhood/as-of?date=' + isoDate(weekEnd));
+  } catch (err) {
+    robinhoodAsOf = [];
+  }
+
+  renderNetWorthAndSpending(weekData, robinhoodAsOf);
+  renderStatusRow(weekData);
+}
+
+function renderNetWorthAndSpending(weekData, robinhoodAsOf) {
+  var hasData = weekData.entry_count > 0;
+  var bank = hasData ? Number(weekData.bank_balance) : 0;
+  var cards = hasData ? weekData.cards || [] : [];
+  var robinhoodTotal = robinhoodAsOf.reduce(function (sum, r) { return sum + Number(r.value); }, 0);
   var liabilities = cards.reduce(function (sum, c) { return sum + Number(c.balance); }, 0);
   var netWorth = bank + robinhoodTotal - liabilities;
 
-  document.getElementById('stat-net-worth').textContent = fmtDollar(netWorth, { cents: true });
+  document.getElementById('stat-net-worth').textContent = hasData || robinhoodAsOf.length ? fmtDollar(netWorth, { cents: true }) : 'No data this week';
 
-  var spent = 0, income = 0;
-  if (latestFinance) {
-    spent = (latestFinance.transactions || []).reduce(function (s, t) { return s + Number(t.amount); }, 0);
-    income = Number(latestFinance.income) || 0;
-  }
+  var spent = (weekData.transactions || []).reduce(function (s, t) { return s + Number(t.amount); }, 0);
+  var income = Number(weekData.income) || 0;
   document.getElementById('stat-spent').textContent = fmtDollar(spent, { cents: true });
   document.getElementById('stat-income').textContent = fmtDollar(income, { cents: true });
 
   var networthRows = [];
-  networthRows.push({ label: 'Bank', value: bank });
-  if (robinhoodTotal > 0 || latestRobinhood.length) networthRows.push({ label: 'Investments', value: robinhoodTotal });
+  if (hasData) networthRows.push({ label: 'Bank', value: bank });
+  if (robinhoodTotal > 0 || robinhoodAsOf.length) networthRows.push({ label: 'Investments', value: robinhoodTotal });
   cards.forEach(function (c) { networthRows.push({ label: c.label, value: -Number(c.balance) }); });
   renderBars('networth-bars', networthRows, { signed: true, cents: true });
 
   var byCategory = {};
-  if (latestFinance) {
-    (latestFinance.transactions || []).forEach(function (t) {
-      byCategory[t.category] = (byCategory[t.category] || 0) + Number(t.amount);
-    });
-  }
+  (weekData.transactions || []).forEach(function (t) {
+    byCategory[t.category] = (byCategory[t.category] || 0) + Number(t.amount);
+  });
   var spendingRows = Object.keys(byCategory).map(function (cat) { return { label: cat, value: byCategory[cat] }; });
   var palette = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)'];
   renderBars('spending-bars', spendingRows, { colors: palette, cents: true });
 }
+
+document.getElementById('week-prev').addEventListener('click', function () {
+  var d = new Date(selectedWeekStart);
+  d.setUTCDate(d.getUTCDate() - 7);
+  selectedWeekStart = d;
+  loadWeekView();
+});
+document.getElementById('week-next').addEventListener('click', function () {
+  var d = new Date(selectedWeekStart);
+  d.setUTCDate(d.getUTCDate() + 7);
+  selectedWeekStart = d;
+  loadWeekView();
+});
 
 async function renderBankWidget() {
   try {
@@ -278,10 +331,13 @@ function renderRobinhoodWidgets() {
   });
 }
 
-function renderStatusRow() {
+function renderStatusRow(weekData) {
   var row = document.getElementById('status-row');
-  var count = latestFinance ? '≥ 1 week logged' : 'No weeks logged yet';
-  row.innerHTML = '<span class="dot ' + (latestFinance ? 'ready' : '') + '"></span> ' + count;
+  var hasData = weekData && weekData.entry_count > 0;
+  var count = hasData
+    ? weekData.entry_count + ' ' + (weekData.entry_count === 1 ? 'entry' : 'entries') + ' logged this week'
+    : 'No entries logged this week';
+  row.innerHTML = '<span class="dot ' + (hasData ? 'ready' : '') + '"></span> ' + count;
 }
 
 // ---- "Add financial info" form ----

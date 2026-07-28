@@ -24,6 +24,32 @@ router.get('/history/:label', async (req, res) => {
   res.json(rows);
 });
 
+// Best-effort value per account "as of" a given week (?date=YYYY-MM-DD, defaults today).
+// Uses the most recent snapshot pushed at or before that date, then looks inside its
+// embedded daily history for the closest date <= the requested one; falls back to the
+// snapshot's own total_value if history doesn't reach back that far.
+router.get('/as-of', async (req, res) => {
+  const asOf = req.query.date ? new Date(req.query.date) : new Date();
+  if (isNaN(asOf.getTime())) return res.status(400).json({ error: 'invalid date' });
+
+  const { rows } = await pool.query(`
+    SELECT DISTINCT ON (account_label) *
+    FROM robinhood_snapshots
+    WHERE logged_at <= $1
+    ORDER BY account_label, logged_at DESC
+  `, [asOf.toISOString()]);
+
+  const results = rows.map((snap) => {
+    const history = (snap.history || [])
+      .filter((h) => new Date(h.date) <= asOf)
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+    const value = history.length ? Number(history[0].value) : Number(snap.total_value);
+    return { account_label: snap.account_label, value, as_of: asOf.toISOString().slice(0, 10) };
+  });
+
+  res.json(results);
+});
+
 router.post('/snapshot', async (req, res) => {
   const { account_label, total_value, history } = req.body;
   if (!account_label || typeof total_value !== 'number') {

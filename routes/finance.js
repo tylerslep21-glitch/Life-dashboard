@@ -6,6 +6,15 @@ const router = express.Router();
 // Net worth combines bank + Robinhood (assets) minus cards (liabilities) - computed
 // client-side once /api/finance/latest and /api/robinhood/latest have both loaded.
 
+// Monday 00:00 UTC of the week containing the given date.
+function weekStart(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diff = (day === 0 ? -6 : 1) - day; // shift back to Monday
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d;
+}
+
 router.get('/latest', async (req, res) => {
   const { rows } = await pool.query(
     'SELECT * FROM finance_entries ORDER BY logged_at DESC LIMIT 1'
@@ -21,6 +30,49 @@ router.get('/history', async (req, res) => {
     [limit]
   );
   res.json(rows);
+});
+
+// Aggregates all entries falling in the Mon-Sun week containing ?date=YYYY-MM-DD
+// (defaults to today). Flows (income, transactions) are summed across every entry
+// that week; point-in-time figures (bank_balance, cards) use the most recent entry.
+router.get('/week', async (req, res) => {
+  const anchor = req.query.date ? new Date(req.query.date) : new Date();
+  if (isNaN(anchor.getTime())) {
+    return res.status(400).json({ error: 'invalid date' });
+  }
+  const start = weekStart(anchor);
+  const end = new Date(start);
+  end.setUTCDate(end.getUTCDate() + 7);
+
+  const { rows } = await pool.query(
+    'SELECT * FROM finance_entries WHERE logged_at >= $1 AND logged_at < $2 ORDER BY logged_at ASC',
+    [start.toISOString(), end.toISOString()]
+  );
+
+  if (rows.length === 0) {
+    return res.json({ week_of: start.toISOString().slice(0, 10), entry_count: 0, bank_balance: null, cards: [], income: 0, transactions: [] });
+  }
+
+  const latest = rows[rows.length - 1];
+  const income = rows.reduce((sum, r) => sum + Number(r.income), 0);
+  const transactions = rows.flatMap((r) => r.transactions || []);
+
+  res.json({
+    week_of: start.toISOString().slice(0, 10),
+    entry_count: rows.length,
+    bank_balance: Number(latest.bank_balance),
+    cards: latest.cards || [],
+    income,
+    transactions,
+    logged_at: latest.logged_at,
+  });
+});
+
+// Earliest week that has any data, so the frontend can disable "prev" past it.
+router.get('/earliest-week', async (req, res) => {
+  const { rows } = await pool.query('SELECT MIN(logged_at) AS min_date FROM finance_entries');
+  if (!rows[0].min_date) return res.json(null);
+  res.json({ week_of: weekStart(new Date(rows[0].min_date)).toISOString().slice(0, 10) });
 });
 
 router.post('/', async (req, res) => {
