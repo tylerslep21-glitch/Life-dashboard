@@ -18,6 +18,29 @@
 
   <div class="modules">
 
+    <section class="module span-2">
+      <div class="module-head"><h2>Calendar</h2></div>
+      <p class="sync-stamp" id="calendar-sync-stamp">Loading&hellip;</p>
+      <ul class="event-list" id="calendar-events"></ul>
+      <div id="calendar-empty-states"></div>
+      <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+        <a class="btn btn-primary" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
+          Canvas &nbsp;&rarr;
+        </a>
+        <a class="btn btn-ghost" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
+          Personal &nbsp;&rarr;
+        </a>
+      </div>
+    </section>
+
+    <section class="module">
+      <div class="module-head">
+        <h2>Subscriptions</h2>
+        <button type="button" class="icon-btn" id="open-subscriptions-form" aria-label="Edit subscriptions">+</button>
+      </div>
+      <ul class="breakdown" id="subscriptions-list"></ul>
+    </section>
+
     <section class="module span-3">
       <div class="week-nav">
         <button type="button" class="week-arrow" id="week-prev" aria-label="Previous week">&larr;</button>
@@ -38,26 +61,6 @@
           <span class="stat-value" id="stat-income">&mdash;</span>
         </div>
       </div>
-    </section>
-
-    <section class="module span-2">
-      <div class="module-head"><h2>Calendar</h2></div>
-      <p class="sync-stamp" id="calendar-sync-stamp">Loading&hellip;</p>
-      <ul class="event-list" id="calendar-events"></ul>
-      <div id="calendar-empty-states"></div>
-      <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-        <a class="btn btn-primary" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
-          Canvas &nbsp;&rarr;
-        </a>
-        <a class="btn btn-ghost" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
-          Personal &nbsp;&rarr;
-        </a>
-      </div>
-    </section>
-
-    <section class="module">
-      <div class="module-head"><h2>Subscriptions</h2></div>
-      <ul class="breakdown" id="subscriptions-list"></ul>
     </section>
 
     <section class="module span-2 viz-root">
@@ -159,6 +162,43 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
       <div class="form-status" id="finance-form-status"></div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="subscriptions-modal-overlay">
+  <div class="modal">
+    <h2>Subscriptions</h2>
+    <div id="subscriptions-manage-list"></div>
+
+    <form id="subscription-add-form">
+      <div class="field-group">
+        <label for="sub-name-input">Name</label>
+        <input type="text" id="sub-name-input" required>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label for="sub-amount-input">Price</label>
+          <input type="number" step="0.01" id="sub-amount-input" required>
+        </div>
+        <div class="field-group">
+          <label for="sub-cadence-input">Period</label>
+          <select id="sub-cadence-input">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label for="sub-purchase-date-input">Purchase date</label>
+        <input type="date" id="sub-purchase-date-input">
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-subscription-form">Close</button>
+        <button type="submit" class="btn btn-primary">Add subscription</button>
+      </div>
+      <div class="form-status" id="subscription-form-status"></div>
     </form>
   </div>
 </div>

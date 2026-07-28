@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   amount NUMERIC NOT NULL,
-  cadence TEXT NOT NULL
+  cadence TEXT NOT NULL,
+  purchase_date DATE
 );
 
 CREATE TABLE IF NOT EXISTS robinhood_snapshots (
@@ -38,6 +39,8 @@ CREATE TABLE IF NOT EXISTS robinhood_snapshots (
   total_value NUMERIC NOT NULL,
   history JSONB NOT NULL DEFAULT '[]'
 );
+
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
 `;
 
 async function migrate() {

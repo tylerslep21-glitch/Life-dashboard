@@ -156,27 +156,112 @@ async function loadCalendar() {
   }
 }
 
+var currentSubscriptions = [];
+
+function nextRenewal(purchaseDate, cadence) {
+  if (!purchaseDate) return null;
+  var d = new Date(purchaseDate + 'T00:00:00Z');
+  var now = new Date();
+  var guard = 0;
+  while (d <= now && guard < 1000) {
+    if (cadence === 'yearly') d.setUTCFullYear(d.getUTCFullYear() + 1);
+    else d.setUTCMonth(d.getUTCMonth() + 1);
+    guard++;
+  }
+  return d;
+}
+
 async function loadSubscriptions() {
   try {
-    var subs = await getJSON('/api/subscriptions');
-    var list = document.getElementById('subscriptions-list');
-    if (!subs.length) {
-      list.innerHTML = '<li>No subscriptions logged yet</li>';
-      return;
-    }
-    var totalMonthly = 0;
-    var rows = subs.map(function (s) {
-      var monthly = s.cadence === 'yearly' ? Number(s.amount) / 12 : Number(s.amount);
-      totalMonthly += monthly;
-      var label = s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo';
-      return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
-    });
-    rows.push('<li><strong>Total</strong><span class="amt"><strong>' + fmtDollar(totalMonthly, { cents: true }) + '/mo</strong></span></li>');
-    list.innerHTML = rows.join('');
+    currentSubscriptions = await getJSON('/api/subscriptions');
+    renderSubscriptionsList();
   } catch (err) {
     document.getElementById('subscriptions-list').innerHTML = '<li>Failed to load</li>';
   }
 }
+
+function renderSubscriptionsList() {
+  var subs = currentSubscriptions;
+  var list = document.getElementById('subscriptions-list');
+  if (!subs.length) {
+    list.innerHTML = '<li>No subscriptions logged yet</li>';
+    return;
+  }
+  var totalMonthly = 0;
+  var rows = subs.map(function (s) {
+    var monthly = s.cadence === 'yearly' ? Number(s.amount) / 12 : Number(s.amount);
+    totalMonthly += monthly;
+    var renewal = nextRenewal(s.purchase_date, s.cadence);
+    var renewalStr = renewal ? ' &middot; renews ' + fmtDate(renewal.toISOString()) : '';
+    var label = (s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo') + renewalStr;
+    return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
+  });
+  rows.push('<li><strong>Total</strong><span class="amt"><strong>' + fmtDollar(totalMonthly, { cents: true }) + '/mo</strong></span></li>');
+  list.innerHTML = rows.join('');
+}
+
+function renderSubscriptionsManageList() {
+  var el = document.getElementById('subscriptions-manage-list');
+  if (!currentSubscriptions.length) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No subscriptions yet.</p>';
+    return;
+  }
+  el.innerHTML = currentSubscriptions.map(function (s) {
+    var period = s.cadence === 'yearly' ? '/yr' : '/mo';
+    return (
+      '<div class="sub-row" data-id="' + s.id + '">' +
+        '<span class="sub-name">' + s.name + ' &mdash; ' + fmtDollar(s.amount, { cents: true }) + period + '</span>' +
+        '<button type="button" class="sub-remove" data-id="' + s.id + '" aria-label="Delete">&times;</button>' +
+      '</div>'
+    );
+  }).join('');
+  el.querySelectorAll('.sub-remove').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      await fetch('/api/subscriptions/' + btn.dataset.id, { method: 'DELETE' });
+      await loadSubscriptions();
+      renderSubscriptionsManageList();
+    });
+  });
+}
+
+var subOverlay = document.getElementById('subscriptions-modal-overlay');
+document.getElementById('open-subscriptions-form').addEventListener('click', function () {
+  document.getElementById('subscription-form-status').textContent = '';
+  renderSubscriptionsManageList();
+  subOverlay.classList.add('open');
+});
+document.getElementById('cancel-subscription-form').addEventListener('click', function () {
+  subOverlay.classList.remove('open');
+});
+subOverlay.addEventListener('click', function (e) {
+  if (e.target === subOverlay) subOverlay.classList.remove('open');
+});
+
+document.getElementById('subscription-add-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('subscription-form-status');
+  var name = document.getElementById('sub-name-input').value.trim();
+  var amount = parseFloat(document.getElementById('sub-amount-input').value);
+  var cadence = document.getElementById('sub-cadence-input').value;
+  var purchaseDate = document.getElementById('sub-purchase-date-input').value || null;
+
+  try {
+    var res = await fetch('/api/subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name, amount: amount, cadence: cadence, purchase_date: purchaseDate }),
+    });
+    if (!res.ok) throw new Error('Server returned ' + res.status);
+    statusEl.textContent = 'Added.';
+    statusEl.className = 'form-status ok';
+    document.getElementById('subscription-add-form').reset();
+    await loadSubscriptions();
+    renderSubscriptionsManageList();
+  } catch (err) {
+    statusEl.textContent = 'Failed to add: ' + err.message;
+    statusEl.className = 'form-status error';
+  }
+});
 
 var latestFinance = null;   // still used by the "Add financial info" form to prefill
 var latestRobinhood = [];   // full history, drives the always-current Robinhood widgets

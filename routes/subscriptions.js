@@ -9,13 +9,13 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { name, amount, cadence } = req.body;
+  const { name, amount, cadence, purchase_date } = req.body;
   if (!name || typeof amount !== 'number' || !cadence) {
     return res.status(400).json({ error: 'name, amount (number), cadence are required' });
   }
   const { rows } = await pool.query(
-    'INSERT INTO subscriptions (name, amount, cadence) VALUES ($1, $2, $3) RETURNING *',
-    [name, amount, cadence]
+    'INSERT INTO subscriptions (name, amount, cadence, purchase_date) VALUES ($1, $2, $3, $4) RETURNING *',
+    [name, amount, cadence, purchase_date || null]
   );
   res.status(201).json(rows[0]);
 });
