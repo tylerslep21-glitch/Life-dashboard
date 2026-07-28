@@ -38,7 +38,6 @@ app.use('/api/countdowns', require('./routes/countdowns'));
 app.use('/api/agent-tracker', require('./routes/agent-tracker'));
 app.use('/api/todos', require('./routes/todos'));
 app.use('/api/ticker', require('./routes/ticker'));
-app.use('/api/now-playing', require('./routes/now-playing'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

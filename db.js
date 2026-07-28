@@ -66,17 +66,6 @@ CREATE TABLE IF NOT EXISTS agent_status (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Single-row table (id always 1) - the latest push from the Now Playing
--- Shortcuts automation overwrites this row, it's not a history.
-CREATE TABLE IF NOT EXISTS now_playing (
-  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
-  title TEXT,
-  artist TEXT,
-  album TEXT,
-  artwork_url TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
 CREATE TABLE IF NOT EXISTS todos (
   id SERIAL PRIMARY KEY,
   text TEXT NOT NULL,
@@ -89,6 +78,11 @@ ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS action_taken TEXT;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- Now Playing feature was scrapped (2026-07-28) - iOS background execution limits
+-- meant it could never be truly real-time, and that was the whole point. Dropping
+-- the unused table rather than leaving dead schema around.
+DROP TABLE IF EXISTS now_playing;
 `;
 
 async function migrate() {
