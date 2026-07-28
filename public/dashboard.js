@@ -201,7 +201,9 @@ function renderSubscriptionsList() {
     var monthly = s.cadence === 'yearly' ? Number(s.amount) / 12 : Number(s.amount);
     totalMonthly += monthly;
     var renewal = nextRenewal(s.purchase_date, s.cadence);
-    var renewalStr = renewal ? ' &middot; renews ' + fmtDateOnly(renewal.toISOString()) : '';
+    var renewalStr = renewal
+      ? ' &middot; renews ' + renewal.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+      : '';
     var label = (s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo') + renewalStr;
     return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
   });
