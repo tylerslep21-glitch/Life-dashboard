@@ -74,68 +74,6 @@ function fmtDateOnly(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
 
-// ---- line chart (ported from the artifact) ----
-function renderLine(id, series, dates, xTicks) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  var W = 300, H = 90, pad = 4;
-  if (!series.length) { el.innerHTML = ''; return; }
-  var dataMin = Math.min.apply(null, series);
-  var dataMax = Math.max.apply(null, series);
-  if (dataMin === dataMax) { dataMin -= 1; dataMax += 1; }
-  var span = dataMax - dataMin;
-  var min = dataMin - span * 0.08, max = dataMax + span * 0.08;
-  var n = series.length;
-  var x = function (i) { return n === 1 ? W / 2 : pad + (i / (n - 1)) * (W - pad * 2); };
-  var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - pad * 2); };
-  var floorY = H;
-
-  var first = series[0], last = series[n - 1];
-  var color = last < first ? 'var(--critical)' : (last > first ? 'var(--good)' : 'var(--muted)');
-
-  var pathD = series.map(function (v, i) {
-    return (i === 0 ? 'M' : 'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1);
-  }).join(' ');
-
-  var areaD = pathD + ' L' + x(n - 1).toFixed(1) + ',' + floorY + ' L' + x(0).toFixed(1) + ',' + floorY + ' Z';
-  var lastX = x(n - 1), lastY = y(last);
-
-  var gridLines = [dataMax, (dataMax + dataMin) / 2, dataMin].map(function (v) {
-    var gy = y(v).toFixed(1);
-    return '<line class="line-grid" x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy + '"/>';
-  }).join('');
-
-  el.innerHTML =
-    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      gridLines +
-      '<path class="line-area" d="' + areaD + '" fill="' + color + '" opacity="0.12"/>' +
-      '<path class="line-path" d="' + pathD + '" stroke="' + color + '"/>' +
-      '<circle class="line-end" cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="4" fill="' + color + '"/>' +
-    '</svg>';
-
-  var suffix = id.replace('spark-', '');
-  var yEl = document.getElementById('yaxis-' + suffix);
-  if (yEl) {
-    yEl.innerHTML = n === 1
-      ? '<span></span><span>' + fmtDollar(series[0]) + '</span><span></span>'
-      : '<span>' + fmtDollar(dataMax) + '</span><span>' + fmtDollar((dataMax + dataMin) / 2) + '</span><span>' + fmtDollar(dataMin) + '</span>';
-  }
-  var xEl = document.getElementById('xaxis-' + suffix);
-  if (xEl) {
-    if (n === 1) {
-      xEl.innerHTML = '<span style="margin: 0 auto;">' + dates[0] + '</span>';
-    } else {
-      var tickCount = Math.min(xTicks || 3, n);
-      var html = '';
-      for (var t = 0; t < tickCount; t++) {
-        var idx = t === tickCount - 1 ? n - 1 : Math.round(t * (n - 1) / (tickCount - 1));
-        html += '<span>' + dates[idx] + '</span>';
-      }
-      xEl.innerHTML = html;
-    }
-  }
-}
-
 // ---- bar chart (ported from the artifact) ----
 function renderBars(containerId, rows, opts) {
   opts = opts || {};
@@ -320,11 +258,14 @@ document.getElementById('subscription-add-form').addEventListener('submit', asyn
 });
 
 var latestFinance = null;   // still used by the "Add financial info" form to prefill
-var latestRobinhood = [];   // full history, drives the always-current Robinhood widgets
 
 // ---- week navigation state ----
 function mondayOf(date) {
-  var d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  // Uses the LOCAL calendar date (not getUTC*) to decide what "today" is -
+  // otherwise anyone west of Greenwich rolls into next week's bucket hours
+  // before their own local midnight (e.g. 8pm Eastern is already the next
+  // UTC day), making next week's data appear to "start" a day early.
+  var d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   var day = d.getUTCDay();
   var diff = (day === 0 ? -6 : 1) - day;
   d.setUTCDate(d.getUTCDate() + diff);
@@ -342,15 +283,11 @@ async function loadFinanceAndRobinhood() {
     latestFinance = await getJSON('/api/finance/latest');
   } catch (err) { latestFinance = null; }
   try {
-    latestRobinhood = await getJSON('/api/robinhood/latest');
-  } catch (err) { latestRobinhood = []; }
-  try {
     var earliest = await getJSON('/api/finance/earliest-week');
     earliestWeekStart = earliest ? new Date(earliest.week_of + 'T00:00:00Z') : currentWeekStart;
   } catch (err) { earliestWeekStart = currentWeekStart; }
 
-  renderBankWidget();
-  renderRobinhoodWidgets();
+  loadNetWorthChart();
   await loadWeekView();
 }
 
@@ -425,53 +362,101 @@ document.getElementById('week-next').addEventListener('click', function () {
   loadWeekView();
 });
 
-async function renderBankWidget() {
+// Combines finance history (bank) with Robinhood snapshots (invested) into one
+// net worth / bank / invested chart, positioned by real elapsed time rather
+// than one evenly-spaced tick per input (see renderMultiLine).
+async function loadNetWorthChart() {
+  var timeline;
   try {
-    var history = await getJSON('/api/finance/history?limit=52');
-    var series = history.map(function (h) { return Number(h.bank_balance); });
-    var dates = history.map(function (h) { return fmtDate(h.logged_at); });
-    var total = series.length ? series[series.length - 1] : 0;
-    document.getElementById('bank-total').textContent = fmtDollar(total, { cents: true });
-    var badge = document.getElementById('bank-badge');
-    if (series.length < 2) {
-      badge.textContent = series.length + ' of ~52 weeks logged';
-      badge.style.background = 'var(--muted)';
-    } else {
-      var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
-      badge.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 1yr';
-      badge.style.background = pct >= 0 ? 'var(--good)' : 'var(--critical)';
-    }
-    renderLine('spark-bank', series, dates, 5);
+    timeline = await getJSON('/api/finance/timeline');
   } catch (err) {
-    document.getElementById('bank-total').textContent = 'n/a';
+    timeline = [];
   }
+
+  var netWorthEl = document.getElementById('networth-total');
+  var bankEl = document.getElementById('bank-total');
+  var investedEl = document.getElementById('invested-total');
+
+  if (!timeline.length) {
+    netWorthEl.textContent = 'No data yet';
+    bankEl.textContent = 'No data yet';
+    investedEl.textContent = 'No data yet';
+    document.getElementById('spark-networth').innerHTML = '';
+    return;
+  }
+
+  var latest = timeline[timeline.length - 1];
+  netWorthEl.textContent = latest.net_worth != null ? fmtDollar(latest.net_worth, { cents: true }) : 'n/a';
+  bankEl.textContent = latest.bank != null ? fmtDollar(latest.bank, { cents: true }) : 'n/a';
+  investedEl.textContent = latest.invested != null ? fmtDollar(latest.invested, { cents: true }) : 'n/a';
+
+  renderMultiLine('spark-networth', 'networth', [
+    { color: 'var(--series-1)', points: timeline.map(function (t) { return { date: t.date, value: t.net_worth }; }) },
+    { color: 'var(--series-2)', points: timeline.map(function (t) { return { date: t.date, value: t.bank }; }) },
+    { color: 'var(--series-3)', points: timeline.map(function (t) { return { date: t.date, value: t.invested }; }) },
+  ]);
 }
 
-function renderRobinhoodWidgets() {
-  ['agentic', 'individual'].forEach(function (key) {
-    var snap = latestRobinhood.find(function (r) { return r.account_label.toLowerCase() === key; });
-    var totalEl = document.getElementById(key + '-total');
-    var badgeEl = document.getElementById(key + '-badge');
-    if (!snap) {
-      totalEl.textContent = 'No data yet';
-      badgeEl.textContent = 'awaiting first push';
-      badgeEl.style.background = 'var(--muted)';
-      return;
+// Like renderLine, but multiple series sharing one time-based x-axis - each
+// point sits at its real elapsed-time position instead of an even index tick,
+// so gaps between logged entries actually show as gaps.
+function renderMultiLine(id, axisSuffix, series) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var W = 600, H = 160, pad = 4;
+
+  var realPoints = series.reduce(function (acc, s) {
+    return acc.concat(s.points.filter(function (p) { return p.value != null; }));
+  }, []);
+  if (!realPoints.length) { el.innerHTML = ''; return; }
+
+  var times = realPoints.map(function (p) { return new Date(p.date).getTime(); });
+  var minT = Math.min.apply(null, times), maxT = Math.max.apply(null, times);
+  if (minT === maxT) { minT -= 1; maxT += 1; }
+
+  var values = realPoints.map(function (p) { return p.value; });
+  var dataMin = Math.min.apply(null, values), dataMax = Math.max.apply(null, values);
+  if (dataMin === dataMax) { dataMin -= 1; dataMax += 1; }
+  var span = dataMax - dataMin;
+  var min = dataMin - span * 0.08, max = dataMax + span * 0.08;
+
+  var x = function (t) { return pad + ((t - minT) / (maxT - minT)) * (W - pad * 2); };
+  var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - pad * 2); };
+
+  var gridLines = [dataMax, (dataMax + dataMin) / 2, dataMin].map(function (v) {
+    var gy = y(v).toFixed(1);
+    return '<line class="line-grid" x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy + '"/>';
+  }).join('');
+
+  var paths = series.map(function (s) {
+    var pts = s.points.filter(function (p) { return p.value != null; });
+    if (!pts.length) return '';
+    var d = pts.map(function (p, i) {
+      return (i === 0 ? 'M' : 'L') + x(new Date(p.date).getTime()).toFixed(1) + ',' + y(p.value).toFixed(1);
+    }).join(' ');
+    var last = pts[pts.length - 1];
+    return (
+      '<path class="line-path" d="' + d + '" stroke="' + s.color + '"/>' +
+      '<circle class="line-end" cx="' + x(new Date(last.date).getTime()).toFixed(1) + '" cy="' + y(last.value).toFixed(1) + '" r="3.5" fill="' + s.color + '"/>'
+    );
+  }).join('');
+
+  el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + gridLines + paths + '</svg>';
+
+  var yEl = document.getElementById('yaxis-' + axisSuffix);
+  if (yEl) {
+    yEl.innerHTML = '<span>' + fmtDollar(dataMax) + '</span><span>' + fmtDollar((dataMax + dataMin) / 2) + '</span><span>' + fmtDollar(dataMin) + '</span>';
+  }
+  var xEl = document.getElementById('xaxis-' + axisSuffix);
+  if (xEl) {
+    var tickCount = 5;
+    var html = '';
+    for (var t = 0; t < tickCount; t++) {
+      var frac = tickCount === 1 ? 0 : t / (tickCount - 1);
+      html += '<span>' + fmtDate(new Date(minT + frac * (maxT - minT)).toISOString()) + '</span>';
     }
-    totalEl.textContent = fmtDollar(snap.total_value, { cents: true });
-    var history = snap.history || [];
-    var series = history.map(function (h) { return Number(h.value); });
-    var dates = history.map(function (h) { return fmtDateOnly(h.date); });
-    if (series.length >= 2) {
-      var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
-      badgeEl.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 30d';
-      badgeEl.style.background = pct >= 0 ? 'var(--good)' : 'var(--critical)';
-    } else {
-      badgeEl.textContent = 'first snapshot';
-      badgeEl.style.background = 'var(--muted)';
-    }
-    renderLine('spark-' + key, series, dates, 5);
-  });
+    xEl.innerHTML = html;
+  }
 }
 
 function renderStatusRow(weekData) {

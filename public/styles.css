@@ -469,6 +469,27 @@
     border-radius: 3px;
   }
 
+  .networth-legend {
+    display: flex;
+    gap: 1.4rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.7rem;
+  }
+  .networth-legend-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .networth-legend-item .legend-swatch { align-self: center; }
+  .networth-legend-label { font-size: 0.72rem; color: var(--muted); }
+  .networth-legend-value {
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
   .chart-wrap {
     display: flex;
     gap: 0.5rem;
@@ -650,8 +671,12 @@
   color: var(--muted);
   width: 2rem;
   height: 2rem;
+  padding: 0;
   cursor: pointer;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .repeat-row .remove-row:hover { border-color: var(--critical, #C23B3B); color: var(--critical, #C23B3B); }
 
@@ -703,9 +728,13 @@
   color: var(--ink);
   width: 2rem;
   height: 2rem;
+  padding: 0;
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .week-arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .week-arrow:disabled { opacity: 0.3; cursor: default; }
@@ -743,7 +772,11 @@
   color: var(--muted);
   width: 1.7rem;
   height: 1.7rem;
+  padding: 0;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sub-row .sub-remove:hover { border-color: var(--critical, #C23B3B); color: var(--critical, #C23B3B); }
 
