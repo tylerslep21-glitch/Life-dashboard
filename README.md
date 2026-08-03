@@ -27,7 +27,7 @@ or point it at your Railway Postgres add-on's connection string during developme
 
 | Variable | Where to get it |
 |---|---|
-| `DASHBOARD_PASSWORD` | Pick any password. The whole app is behind HTTP Basic Auth using this single shared password (no separate username needed). |
+| `DASHBOARD_PASSWORD` | Pick any password. The browser-facing app is behind a login page (password or, once you register one from inside the app, Touch ID / Face ID) backed by a signed session cookie - no more re-typing it per browser/session. API routes also still accept it as an HTTP Basic Auth password (`Authorization: Basic <base64 of "anything:DASHBOARD_PASSWORD">`) for scripted callers like Claude's Robinhood snapshot push - see "Robinhood" below. |
 | `DATABASE_URL` | Railway injects this automatically once you attach the Postgres add-on. |
 | `CANVAS_ICS_URL` | Canvas → Account → Settings → scroll to **Calendar Feed**, copy the `.ics` URL. |
 | `PERSONAL_ICS_URL` | Google Calendar → Settings (gear icon) → click your calendar's name → **Integrate calendar** → **Secret address in iCal format**. Do **not** use the public `.../ical/{your-email}/public/basic.ics` pattern — that only works because the calendar's sharing is set to public, which means anyone who guesses that URL (just your email address) can read your full event history. Use the real secret address instead, and turn public sharing back off in that calendar's permissions. |
@@ -41,8 +41,10 @@ or point it at your Railway Postgres add-on's connection string during developme
 4. In your app service's **Variables** tab, add `DASHBOARD_PASSWORD`, `CANVAS_ICS_URL`,
    `PERSONAL_ICS_URL`.
 5. Railway builds and deploys automatically (it detects Node via `package.json`).
-   It gives you a public `*.up.railway.app` domain — the app is still protected by
-   the Basic Auth password, so that's expected and fine.
+   It gives you a public `*.up.railway.app` domain — the app sends you to `/login`
+   until you sign in, so that's expected and fine. Once in, open the lock icon in the
+   header to register Touch ID / Face ID for that browser/device so you don't have to
+   type the password there again.
 6. One-time only, to bring over anything already logged in the old
    `~/Documents/Life Dashboard/finances.json`:
    ```bash
@@ -75,6 +77,25 @@ Content-Type: application/json
 
 one call per account (`Agentic`, `Individual`). The app just stores and displays
 whatever it's given.
+
+## Sign-in (password + Touch ID / Face ID)
+
+The browser-facing app sits behind `/login` — a password field plus, once at least one
+device is registered, a "Sign in with Touch ID" button (uses WebAuthn under the hood, so
+it also covers Face ID and any other platform authenticator; the label just says Touch ID
+since that's what most people will actually see). Signing in either way sets a signed
+session cookie good for 90 days — that's what actually solves "stop asking me for the
+password every time," not the biometric prompt itself.
+
+To register a device: sign in with the password once, click the lock icon in the header,
+**+ Add this device**, and follow your browser/OS's own prompt. Do this per browser and
+per device (a MacBook's Safari and Chrome are separate authenticators, as are your phone
+and laptop) — there's no limit on how many can be registered, and each can be removed
+independently from that same panel.
+
+There's no way to test the actual biometric prompt outside a real browser with a
+platform authenticator (Touch ID, Face ID, Windows Hello) present — if sign-in ever needs
+debugging, that has to happen by hand, not by asking Claude to verify it.
 
 ## Adding financial info
 

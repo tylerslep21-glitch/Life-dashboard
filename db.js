@@ -83,6 +83,21 @@ ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
 -- meant it could never be truly real-time, and that was the whole point. Dropping
 -- the unused table rather than leaving dead schema around.
 DROP TABLE IF EXISTS now_playing;
+
+-- Touch ID / Face ID sign-in (WebAuthn). Single shared dashboard, so credentials aren't
+-- scoped to a user account - any registered device credential can sign in. counter guards
+-- against cloned authenticators (should only ever increase); device_label is whatever the
+-- browser reports at registration time (e.g. "Touch ID"), shown in the credential manager
+-- UI so multiple registered devices are distinguishable.
+CREATE TABLE IF NOT EXISTS webauthn_credentials (
+  id SERIAL PRIMARY KEY,
+  credential_id TEXT UNIQUE NOT NULL,
+  public_key TEXT NOT NULL,
+  counter BIGINT NOT NULL DEFAULT 0,
+  device_label TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ
+);
 `;
 
 async function migrate() {

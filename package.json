@@ -11,6 +11,7 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^13.3.2",
     "express": "^4.19.2",
     "node-ical": "^0.27.1",
     "pg": "^8.11.5",

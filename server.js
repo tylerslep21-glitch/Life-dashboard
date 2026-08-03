@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { migrate } = require('./db');
+const { hasValidSession, hasValidBasicAuth } = require('./lib/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,22 +12,45 @@ if (!DASHBOARD_PASSWORD) {
   process.exit(1);
 }
 
-// Basic Auth on every route - single shared password, no username check.
-app.use((req, res, next) => {
-  const header = req.headers.authorization || '';
-  const [scheme, encoded] = header.split(' ');
-  if (scheme === 'Basic' && encoded) {
-    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
-    const passwordPart = decoded.split(':').slice(1).join(':');
-    if (passwordPart === DASHBOARD_PASSWORD) {
-      return next();
-    }
-  }
-  res.set('WWW-Authenticate', 'Basic realm="Life Dashboard"');
-  res.status(401).send('Authentication required.');
-});
+// Railway terminates TLS and forwards plain HTTP internally - without trusting the proxy,
+// req.protocol always reports 'http', which breaks WebAuthn's strict origin check (it
+// requires an exact https:// match) even though the browser is really on https.
+app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '6mb' })); // room for a base64-encoded countdown photo
+
+// Auth endpoints (password login, Touch ID/Face ID registration+sign-in, session check)
+// are deliberately unauthenticated - that's the whole point of a login flow.
+app.use('/api/auth', require('./routes/auth'));
+
+// A handful of static assets have to be reachable before sign-in: the login page itself,
+// its script, the shared stylesheet (so it isn't unstyled), and PWA icons/manifest.
+const PUBLIC_FILES = new Set([
+  '/login.html',
+  '/webauthn.js',
+  '/styles.css',
+  '/manifest.json',
+  '/apple-touch-icon.png',
+  '/icon-192.png',
+  '/icon-512.png',
+]);
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
+app.use((req, res, next) => {
+  if (PUBLIC_FILES.has(req.path)) return next();
+  if (hasValidSession(req)) return next();
+  // API calls always get a plain 401 the client can react to (a fetch() with no
+  // Accept header - which is the common case - can't be reliably told apart from a
+  // page navigation by Accept alone, so this keys off path instead). They also accept
+  // the old Basic Auth password as an alternate credential - scripted callers (e.g.
+  // Claude pushing a Robinhood snapshot from a chat session) never got a session cookie
+  // and shouldn't have to.
+  if (req.path.startsWith('/api/')) {
+    if (hasValidBasicAuth(req)) return next();
+    return res.status(401).json({ error: 'Not signed in' });
+  }
+  res.redirect('/login');
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/calendar', require('./routes/calendar'));

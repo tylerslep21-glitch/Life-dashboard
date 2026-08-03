@@ -25,6 +25,7 @@
     <h1></h1>
     <div class="byline">
       <span id="clock"></span>
+      <button type="button" class="icon-btn" id="open-signin-settings" aria-label="Sign-in settings" style="margin-left: 0.5rem;">&#128272;</button>
     </div>
   </header>
 
@@ -346,6 +347,25 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="signin-modal-overlay">
+  <div class="modal">
+    <h2>Sign-in settings</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Registered Touch ID / Face ID devices for this dashboard.
+    </p>
+    <div id="webauthn-credentials-list"></div>
+    <button type="button" class="btn btn-primary" id="add-webauthn-device-btn" style="margin-top: 0.5rem;">
+      + Add this device
+    </button>
+    <p class="form-status" id="webauthn-status"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="signout-btn">Sign out</button>
+      <button type="button" class="btn btn-outline-only" id="cancel-signin-form">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="/webauthn.js"></script>
 <script src="/dashboard.js"></script>
 </body>
 </html>

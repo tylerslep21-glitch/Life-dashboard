@@ -1121,6 +1121,76 @@ async function loadTicker() {
   }
 }
 
+// ---- sign-in settings (Touch ID / Face ID management) ----
+var signinOverlay = document.getElementById('signin-modal-overlay');
+var webauthnStatusEl = document.getElementById('webauthn-status');
+
+async function renderWebauthnCredentialsList() {
+  var listEl = document.getElementById('webauthn-credentials-list');
+  listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Loading&hellip;</p>';
+  try {
+    var res = await fetch('/api/auth/webauthn/credentials');
+    var creds = await res.json();
+    if (!creds.length) {
+      listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No devices registered yet.</p>';
+      return;
+    }
+    listEl.innerHTML = creds.map(function (c) {
+      return (
+        '<div class="breakdown-row" data-id="' + c.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;">' +
+          '<span>' + c.device_label + '</span>' +
+          '<button type="button" class="icon-btn remove-webauthn-btn" data-id="' + c.id + '" aria-label="Remove">&times;</button>' +
+        '</div>'
+      );
+    }).join('');
+    listEl.querySelectorAll('.remove-webauthn-btn').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        await fetch('/api/auth/webauthn/credentials/' + btn.dataset.id, { method: 'DELETE' });
+        renderWebauthnCredentialsList();
+      });
+    });
+  } catch (err) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Could not load.</p>';
+  }
+}
+
+document.getElementById('open-signin-settings').addEventListener('click', function () {
+  webauthnStatusEl.textContent = '';
+  renderWebauthnCredentialsList();
+  signinOverlay.classList.add('open');
+});
+document.getElementById('cancel-signin-form').addEventListener('click', function () {
+  signinOverlay.classList.remove('open');
+});
+signinOverlay.addEventListener('click', function (e) {
+  if (e.target === signinOverlay) signinOverlay.classList.remove('open');
+});
+
+document.getElementById('add-webauthn-device-btn').addEventListener('click', async function () {
+  if (!webauthnSupported()) {
+    webauthnStatusEl.textContent = 'This browser does not support Touch ID / Face ID sign-in.';
+    webauthnStatusEl.className = 'form-status error';
+    return;
+  }
+  webauthnStatusEl.textContent = 'Follow the prompt from your browser or device&hellip;';
+  webauthnStatusEl.className = 'form-status';
+  try {
+    var label = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || 'Device';
+    await registerTouchId(label);
+    webauthnStatusEl.textContent = 'Device added.';
+    webauthnStatusEl.className = 'form-status ok';
+    renderWebauthnCredentialsList();
+  } catch (err) {
+    webauthnStatusEl.textContent = 'Could not add device: ' + err.message;
+    webauthnStatusEl.className = 'form-status error';
+  }
+});
+
+document.getElementById('signout-btn').addEventListener('click', async function () {
+  await fetch('/api/auth/logout', { method: 'POST' });
+  window.location.href = '/login';
+});
+
 // ---- auto-reload for an always-on desk display ----
 // A full page reload (not a soft re-fetch) so every widget - calendar, ticker,
 // finance, everything - genuinely starts fresh, not just the ones with their

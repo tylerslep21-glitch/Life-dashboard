@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sign in — Life Dashboard</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1A1A1A">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 340px;
+      background: var(--paper-raised);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem 1.75rem;
+      box-shadow: 0 12px 40px var(--shadow);
+      text-align: center;
+    }
+    .login-card h1 { font-size: 1.3rem; margin: 0 0 1.4rem; color: var(--ink); }
+    .login-card input[type="password"] {
+      width: 100%;
+      padding: 0.7rem 0.9rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 1rem;
+      margin-bottom: 0.8rem;
+    }
+    .login-card .btn { width: 100%; margin-bottom: 0.6rem; justify-content: center; }
+    .login-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin: 1rem 0;
+    }
+    .login-divider::before, .login-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .login-error {
+      color: #d84343;
+      font-size: 0.85rem;
+      margin-top: 0.6rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+      <h1>Life Dashboard</h1>
+      <button type="button" class="btn btn-primary" id="touchid-btn" style="display:none;">
+        Sign in with Touch ID
+      </button>
+      <div class="login-divider" id="divider" style="display:none;">or</div>
+      <form id="password-form">
+        <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" autofocus required>
+        <button type="submit" class="btn btn-ghost">Sign in with password</button>
+      </form>
+      <p class="login-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <script src="/webauthn.js"></script>
+  <script>
+    var errorEl = document.getElementById('login-error');
+    var touchIdBtn = document.getElementById('touchid-btn');
+    var divider = document.getElementById('divider');
+
+    // Only offer Touch ID if this browser supports it AND at least one credential is
+    // already registered - probing the options endpoint doubles as that check.
+    if (webauthnSupported()) {
+      fetch('/api/auth/webauthn/authentication-options', { method: 'GET' })
+        .then(function (res) {
+          if (res.status === 404) return; // no credentials registered yet - stay hidden
+          touchIdBtn.style.display = 'block';
+          divider.style.display = 'flex';
+        })
+        .catch(function () {});
+    }
+
+    touchIdBtn.addEventListener('click', function () {
+      errorEl.textContent = '';
+      signInWithTouchId()
+        .then(function () { window.location.href = '/'; })
+        .catch(function (err) {
+          // A cancelled/failed platform-authenticator prompt shouldn't look like a hard
+          // error - the password field is right there as a fallback.
+          errorEl.textContent = err.message || 'Touch ID sign-in failed.';
+        });
+    });
+
+    document.getElementById('password-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorEl.textContent = '';
+      fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: document.getElementById('password-input').value }),
+      })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (b) { throw new Error(b.error || 'Sign-in failed'); });
+          window.location.href = '/';
+        })
+        .catch(function (err) { errorEl.textContent = err.message; });
+    });
+  </script>
+</body>
+</html>
