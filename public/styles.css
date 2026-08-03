@@ -716,9 +716,13 @@
   color: var(--ink-soft);
   width: 1.6rem;
   height: 1.6rem;
+  padding: 0;
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
 
