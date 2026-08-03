@@ -258,6 +258,7 @@ document.getElementById('subscription-add-form').addEventListener('submit', asyn
 });
 
 var latestFinance = null;   // still used by the "Add financial info" form to prefill
+var latestRobinhood = [];   // drives the standalone Agentic/Individual widgets
 
 // ---- week navigation state ----
 function mondayOf(date) {
@@ -283,11 +284,15 @@ async function loadFinanceAndRobinhood() {
     latestFinance = await getJSON('/api/finance/latest');
   } catch (err) { latestFinance = null; }
   try {
+    latestRobinhood = await getJSON('/api/robinhood/latest');
+  } catch (err) { latestRobinhood = []; }
+  try {
     var earliest = await getJSON('/api/finance/earliest-week');
     earliestWeekStart = earliest ? new Date(earliest.week_of + 'T00:00:00Z') : currentWeekStart;
   } catch (err) { earliestWeekStart = currentWeekStart; }
 
   loadNetWorthChart();
+  renderRobinhoodWidgets();
   await loadWeekView();
 }
 
@@ -456,6 +461,107 @@ function renderMultiLine(id, axisSuffix, series) {
       html += '<span>' + fmtDate(new Date(minT + frac * (maxT - minT)).toISOString()) + '</span>';
     }
     xEl.innerHTML = html;
+  }
+}
+
+function renderRobinhoodWidgets() {
+  ['agentic', 'individual'].forEach(function (key) {
+    var snap = latestRobinhood.find(function (r) { return r.account_label.toLowerCase() === key; });
+    var totalEl = document.getElementById(key + '-total');
+    var badgeEl = document.getElementById(key + '-badge');
+    if (!snap) {
+      totalEl.textContent = 'No data yet';
+      badgeEl.textContent = 'awaiting first push';
+      badgeEl.style.background = 'var(--muted)';
+      return;
+    }
+    totalEl.textContent = fmtDollar(snap.total_value, { cents: true });
+    var history = snap.history || [];
+    var series = history.map(function (h) { return Number(h.value); });
+    var dates = history.map(function (h) { return fmtDateOnly(h.date); });
+    if (series.length >= 2) {
+      var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
+      badgeEl.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 30d';
+      badgeEl.style.background = pct >= 0 ? 'var(--good)' : 'var(--critical)';
+    } else {
+      badgeEl.textContent = 'first snapshot';
+      badgeEl.style.background = 'var(--muted)';
+    }
+    renderLine('spark-' + key, series, dates, 5);
+  });
+}
+
+// ---- line chart (ported from the artifact) ----
+function renderLine(id, series, dates, xTicks) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  if (!series.length) { el.innerHTML = ''; return; }
+
+  // Reconstructed history can pad the front with 0 before the account/data
+  // actually existed (e.g. less than a year of real history) - trim that
+  // leading run so the chart starts at the first real point instead of a
+  // flat line dragging up from 0.
+  var firstReal = series.findIndex(function (v) { return v !== 0; });
+  if (firstReal > 0) {
+    series = series.slice(firstReal);
+    dates = dates.slice(firstReal);
+  }
+  if (!series.length) { el.innerHTML = ''; return; }
+
+  var W = 300, H = 90, pad = 4;
+  var dataMin = Math.min.apply(null, series);
+  var dataMax = Math.max.apply(null, series);
+  if (dataMin === dataMax) { dataMin -= 1; dataMax += 1; }
+  var span = dataMax - dataMin;
+  var min = dataMin - span * 0.08, max = dataMax + span * 0.08;
+  var n = series.length;
+  var x = function (i) { return n === 1 ? W / 2 : pad + (i / (n - 1)) * (W - pad * 2); };
+  var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - pad * 2); };
+  var floorY = H;
+
+  var first = series[0], last = series[n - 1];
+  var color = last < first ? 'var(--critical)' : (last > first ? 'var(--good)' : 'var(--muted)');
+
+  var pathD = series.map(function (v, i) {
+    return (i === 0 ? 'M' : 'L') + x(i).toFixed(1) + ',' + y(v).toFixed(1);
+  }).join(' ');
+
+  var areaD = pathD + ' L' + x(n - 1).toFixed(1) + ',' + floorY + ' L' + x(0).toFixed(1) + ',' + floorY + ' Z';
+  var lastX = x(n - 1), lastY = y(last);
+
+  var gridLines = [dataMax, (dataMax + dataMin) / 2, dataMin].map(function (v) {
+    var gy = y(v).toFixed(1);
+    return '<line class="line-grid" x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy + '"/>';
+  }).join('');
+
+  el.innerHTML =
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+      gridLines +
+      '<path class="line-area" d="' + areaD + '" fill="' + color + '" opacity="0.12"/>' +
+      '<path class="line-path" d="' + pathD + '" stroke="' + color + '"/>' +
+      '<circle class="line-end" cx="' + lastX.toFixed(1) + '" cy="' + lastY.toFixed(1) + '" r="4" fill="' + color + '"/>' +
+    '</svg>';
+
+  var suffix = id.replace('spark-', '');
+  var yEl = document.getElementById('yaxis-' + suffix);
+  if (yEl) {
+    yEl.innerHTML = n === 1
+      ? '<span></span><span>' + fmtDollar(series[0]) + '</span><span></span>'
+      : '<span>' + fmtDollar(dataMax) + '</span><span>' + fmtDollar((dataMax + dataMin) / 2) + '</span><span>' + fmtDollar(dataMin) + '</span>';
+  }
+  var xEl = document.getElementById('xaxis-' + suffix);
+  if (xEl) {
+    if (n === 1) {
+      xEl.innerHTML = '<span style="margin: 0 auto;">' + dates[0] + '</span>';
+    } else {
+      var tickCount = Math.min(xTicks || 3, n);
+      var html = '';
+      for (var t = 0; t < tickCount; t++) {
+        var idx = t === tickCount - 1 ? n - 1 : Math.round(t * (n - 1) / (tickCount - 1));
+        html += '<span>' + dates[idx] + '</span>';
+      }
+      xEl.innerHTML = html;
+    }
   }
 }
 
