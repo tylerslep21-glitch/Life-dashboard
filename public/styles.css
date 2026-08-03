@@ -469,27 +469,6 @@
     border-radius: 3px;
   }
 
-  .networth-legend {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    margin-bottom: 0.5rem;
-  }
-  .networth-legend-item {
-    display: flex;
-    align-items: baseline;
-    gap: 0.35rem;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  .networth-legend-item .legend-swatch { align-self: center; }
-  .networth-legend-label { font-size: 0.68rem; color: var(--muted); flex: 1; }
-  .networth-legend-value {
-    font-size: 0.85rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--ink);
-  }
-
   .chart-wrap {
     display: flex;
     gap: 0.5rem;

@@ -291,7 +291,7 @@ async function loadFinanceAndRobinhood() {
     earliestWeekStart = earliest ? new Date(earliest.week_of + 'T00:00:00Z') : currentWeekStart;
   } catch (err) { earliestWeekStart = currentWeekStart; }
 
-  loadNetWorthChart();
+  renderBankWidget();
   renderRobinhoodWidgets();
   await loadWeekView();
 }
@@ -367,100 +367,25 @@ document.getElementById('week-next').addEventListener('click', function () {
   loadWeekView();
 });
 
-// Combines finance history (bank) with Robinhood snapshots (invested) into one
-// net worth / bank / invested chart, positioned by real elapsed time rather
-// than one evenly-spaced tick per input (see renderMultiLine).
-async function loadNetWorthChart() {
-  var timeline;
+async function renderBankWidget() {
   try {
-    timeline = await getJSON('/api/finance/timeline');
-  } catch (err) {
-    timeline = [];
-  }
-
-  var netWorthEl = document.getElementById('networth-total');
-  var bankEl = document.getElementById('bank-total');
-  var investedEl = document.getElementById('invested-total');
-
-  if (!timeline.length) {
-    netWorthEl.textContent = 'No data yet';
-    bankEl.textContent = 'No data yet';
-    investedEl.textContent = 'No data yet';
-    document.getElementById('spark-networth').innerHTML = '';
-    return;
-  }
-
-  var latest = timeline[timeline.length - 1];
-  netWorthEl.textContent = latest.net_worth != null ? fmtDollar(latest.net_worth, { cents: true }) : 'n/a';
-  bankEl.textContent = latest.bank != null ? fmtDollar(latest.bank, { cents: true }) : 'n/a';
-  investedEl.textContent = latest.invested != null ? fmtDollar(latest.invested, { cents: true }) : 'n/a';
-
-  renderMultiLine('spark-networth', 'networth', [
-    { color: 'var(--series-1)', points: timeline.map(function (t) { return { date: t.date, value: t.net_worth }; }) },
-    { color: 'var(--series-2)', points: timeline.map(function (t) { return { date: t.date, value: t.bank }; }) },
-    { color: 'var(--series-3)', points: timeline.map(function (t) { return { date: t.date, value: t.invested }; }) },
-  ]);
-}
-
-// Like renderLine, but multiple series sharing one time-based x-axis - each
-// point sits at its real elapsed-time position instead of an even index tick,
-// so gaps between logged entries actually show as gaps.
-function renderMultiLine(id, axisSuffix, series) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  var W = 300, H = 90, pad = 4;
-
-  var realPoints = series.reduce(function (acc, s) {
-    return acc.concat(s.points.filter(function (p) { return p.value != null; }));
-  }, []);
-  if (!realPoints.length) { el.innerHTML = ''; return; }
-
-  var times = realPoints.map(function (p) { return new Date(p.date).getTime(); });
-  var minT = Math.min.apply(null, times), maxT = Math.max.apply(null, times);
-  if (minT === maxT) { minT -= 1; maxT += 1; }
-
-  var values = realPoints.map(function (p) { return p.value; });
-  var dataMin = Math.min.apply(null, values), dataMax = Math.max.apply(null, values);
-  if (dataMin === dataMax) { dataMin -= 1; dataMax += 1; }
-  var span = dataMax - dataMin;
-  var min = dataMin - span * 0.08, max = dataMax + span * 0.08;
-
-  var x = function (t) { return pad + ((t - minT) / (maxT - minT)) * (W - pad * 2); };
-  var y = function (v) { return pad + (1 - (v - min) / (max - min)) * (H - pad * 2); };
-
-  var gridLines = [dataMax, (dataMax + dataMin) / 2, dataMin].map(function (v) {
-    var gy = y(v).toFixed(1);
-    return '<line class="line-grid" x1="' + pad + '" y1="' + gy + '" x2="' + (W - pad) + '" y2="' + gy + '"/>';
-  }).join('');
-
-  var paths = series.map(function (s) {
-    var pts = s.points.filter(function (p) { return p.value != null; });
-    if (!pts.length) return '';
-    var d = pts.map(function (p, i) {
-      return (i === 0 ? 'M' : 'L') + x(new Date(p.date).getTime()).toFixed(1) + ',' + y(p.value).toFixed(1);
-    }).join(' ');
-    var last = pts[pts.length - 1];
-    return (
-      '<path class="line-path" d="' + d + '" stroke="' + s.color + '"/>' +
-      '<circle class="line-end" cx="' + x(new Date(last.date).getTime()).toFixed(1) + '" cy="' + y(last.value).toFixed(1) + '" r="3.5" fill="' + s.color + '"/>'
-    );
-  }).join('');
-
-  el.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + gridLines + paths + '</svg>';
-
-  var yEl = document.getElementById('yaxis-' + axisSuffix);
-  if (yEl) {
-    yEl.innerHTML = '<span>' + fmtDollar(dataMax) + '</span><span>' + fmtDollar((dataMax + dataMin) / 2) + '</span><span>' + fmtDollar(dataMin) + '</span>';
-  }
-  var xEl = document.getElementById('xaxis-' + axisSuffix);
-  if (xEl) {
-    var tickCount = 5;
-    var html = '';
-    for (var t = 0; t < tickCount; t++) {
-      var frac = tickCount === 1 ? 0 : t / (tickCount - 1);
-      html += '<span>' + fmtDate(new Date(minT + frac * (maxT - minT)).toISOString()) + '</span>';
+    var history = await getJSON('/api/finance/history?limit=52');
+    var series = history.map(function (h) { return Number(h.bank_balance); });
+    var dates = history.map(function (h) { return fmtDate(h.logged_at); });
+    var total = series.length ? series[series.length - 1] : 0;
+    document.getElementById('bank-total').textContent = fmtDollar(total, { cents: true });
+    var badge = document.getElementById('bank-badge');
+    if (series.length < 2) {
+      badge.textContent = series.length + ' of ~52 weeks logged';
+      badge.style.background = 'var(--muted)';
+    } else {
+      var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
+      badge.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 1yr';
+      badge.style.background = pct >= 0 ? 'var(--good)' : 'var(--critical)';
     }
-    xEl.innerHTML = html;
+    renderLine('spark-bank', series, dates, 5);
+  } catch (err) {
+    document.getElementById('bank-total').textContent = 'n/a';
   }
 }
 

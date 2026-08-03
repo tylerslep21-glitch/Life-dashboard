@@ -135,30 +135,17 @@
 
     <section class="module viz-root">
       <div class="spark-head" style="margin-bottom: 0.1rem;">
-        <span class="name" style="font-size: 0.72rem;">NET WORTH &middot; BANK &middot; INVESTED</span>
+        <span class="name" style="font-size: 0.72rem;">BANK &middot; 1YR</span>
       </div>
-      <div class="networth-legend" id="networth-chart-legend">
-        <span class="networth-legend-item">
-          <span class="legend-swatch" style="background: var(--series-1);"></span>
-          <span class="networth-legend-label">Net worth</span>
-          <span class="networth-legend-value" id="networth-total">&hellip;</span>
-        </span>
-        <span class="networth-legend-item">
-          <span class="legend-swatch" style="background: var(--series-2);"></span>
-          <span class="networth-legend-label">Bank</span>
-          <span class="networth-legend-value" id="bank-total">&hellip;</span>
-        </span>
-        <span class="networth-legend-item">
-          <span class="legend-swatch" style="background: var(--series-3);"></span>
-          <span class="networth-legend-label">Invested</span>
-          <span class="networth-legend-value" id="invested-total">&hellip;</span>
-        </span>
+      <div class="widget-total" id="bank-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
+      <div style="margin-bottom: 0.6rem;">
+        <span class="pill" id="bank-badge" style="background: var(--muted);">&hellip;</span>
       </div>
       <div class="chart-wrap">
-        <div class="y-axis" id="yaxis-networth"></div>
-        <div class="spark-chart" id="spark-networth"><span class="skel skel-block"></span></div>
+        <div class="y-axis" id="yaxis-bank"></div>
+        <div class="spark-chart" id="spark-bank"><span class="skel skel-block"></span></div>
       </div>
-      <div class="x-axis" id="xaxis-networth"></div>
+      <div class="x-axis" id="xaxis-bank"></div>
     </section>
 
     <section class="module viz-root">

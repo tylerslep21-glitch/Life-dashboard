@@ -99,66 +99,6 @@ router.patch('/:id/transactions', async (req, res) => {
   res.json(rows[0]);
 });
 
-// Combines finance_entries (bank/cards) with robinhood_snapshots (invested) into
-// one dated series for the "net worth / bank / invested" chart - real elapsed
-// time on the x-axis, not one point per input regardless of gap. Only includes
-// dates where SOMETHING was actually logged (no synthetic daily fill); each
-// series forward-fills from its own latest known value as of that date.
-router.get('/timeline', async (req, res) => {
-  const { rows: financeRows } = await pool.query(
-    'SELECT logged_at, bank_balance, cards FROM finance_entries ORDER BY logged_at ASC'
-  );
-  const { rows: rhRows } = await pool.query(
-    'SELECT account_label, logged_at, total_value, history FROM robinhood_snapshots ORDER BY logged_at ASC'
-  );
-
-  const dateSet = new Set();
-  financeRows.forEach((r) => dateSet.add(new Date(r.logged_at).toISOString()));
-  rhRows.forEach((r) => dateSet.add(new Date(r.logged_at).toISOString()));
-  const dates = Array.from(dateSet).sort();
-
-  function bankAsOf(at) {
-    let latest = null;
-    for (const r of financeRows) {
-      if (new Date(r.logged_at) > at) break;
-      latest = r;
-    }
-    if (!latest) return null;
-    const liabilities = (latest.cards || []).reduce((sum, c) => sum + Number(c.balance), 0);
-    return { bank: Number(latest.bank_balance), liabilities };
-  }
-
-  function investedAsOf(at) {
-    const latestPerAccount = {};
-    for (const r of rhRows) {
-      if (new Date(r.logged_at) > at) break;
-      latestPerAccount[r.account_label] = r;
-    }
-    const labels = Object.keys(latestPerAccount);
-    if (!labels.length) return null;
-    return labels.reduce((sum, label) => {
-      const snap = latestPerAccount[label];
-      const hist = (snap.history || [])
-        .filter((h) => new Date(h.date) <= at)
-        .sort((a, b) => new Date(b.date) - new Date(a.date));
-      const value = hist.length ? Number(hist[0].value) : Number(snap.total_value);
-      return sum + value;
-    }, 0);
-  }
-
-  const timeline = dates.map((iso) => {
-    const at = new Date(iso);
-    const b = bankAsOf(at);
-    const invested = investedAsOf(at);
-    const bank = b ? b.bank : null;
-    const liabilities = b ? b.liabilities : 0;
-    const netWorth = (bank != null || invested != null) ? (bank || 0) + (invested || 0) - liabilities : null;
-    return { date: iso, bank, invested, net_worth: netWorth };
-  });
-
-  res.json(timeline);
-});
-
 // Earliest week that has any data, so the frontend can disable "prev" past it.
 router.get('/earliest-week', async (req, res) => {
   const { rows } = await pool.query('SELECT MIN(logged_at) AS min_date FROM finance_entries');
