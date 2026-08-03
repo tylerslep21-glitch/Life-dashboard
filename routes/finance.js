@@ -107,7 +107,7 @@ router.get('/earliest-week', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { bank_balance, cards, income, transactions } = req.body;
+  const { bank_balance, cards, income, transactions, logged_at } = req.body;
   if (typeof bank_balance !== 'number') {
     return res.status(400).json({ error: 'bank_balance (number) is required' });
   }
@@ -115,10 +115,19 @@ router.post('/', async (req, res) => {
   const safeTransactions = Array.isArray(transactions) ? transactions : [];
   const safeIncome = typeof income === 'number' ? income : 0;
 
+  // logged_at lets the dashboard backfill a forgotten entry into a past week
+  // (attributed to that week's bucket in /week) instead of always "now".
+  let loggedAt = new Date();
+  if (logged_at) {
+    const parsed = new Date(logged_at);
+    if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'invalid logged_at' });
+    loggedAt = parsed;
+  }
+
   const { rows } = await pool.query(
-    `INSERT INTO finance_entries (bank_balance, cards, income, transactions)
-     VALUES ($1, $2, $3, $4) RETURNING *`,
-    [bank_balance, JSON.stringify(safeCards), safeIncome, JSON.stringify(safeTransactions)]
+    `INSERT INTO finance_entries (bank_balance, cards, income, transactions, logged_at)
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [bank_balance, JSON.stringify(safeCards), safeIncome, JSON.stringify(safeTransactions), loggedAt.toISOString()]
   );
   res.status(201).json(rows[0]);
 });

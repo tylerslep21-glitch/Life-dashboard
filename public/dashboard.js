@@ -335,6 +335,7 @@ function isoDate(d) { return d.toISOString().slice(0, 10); }
 var currentWeekStart = mondayOf(new Date());
 var earliestWeekStart = null; // fetched once at boot
 var selectedWeekStart = currentWeekStart;
+var currentWeekData = null; // the aggregated /api/finance/week response for selectedWeekStart
 
 async function loadFinanceAndRobinhood() {
   try {
@@ -367,6 +368,7 @@ async function loadWeekView() {
   } catch (err) {
     weekData = { bank_balance: null, cards: [], income: 0, transactions: [], entry_count: 0 };
   }
+  currentWeekData = weekData;
   try {
     var weekEnd = new Date(selectedWeekStart);
     weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
@@ -524,17 +526,29 @@ function addTransactionRow(category, amount) {
 document.getElementById('add-card-row').addEventListener('click', function () { addCardRow(); });
 document.getElementById('add-transaction-row').addEventListener('click', function () { addTransactionRow(); });
 
+function isCurrentWeekSelected() { return isoDate(selectedWeekStart) === isoDate(currentWeekStart); }
+
 document.getElementById('open-finance-form').addEventListener('click', function () {
   cardsRows.innerHTML = '';
   transactionsRows.innerHTML = '';
   document.getElementById('finance-form-status').textContent = '';
-  if (latestFinance) {
-    document.getElementById('bank-balance-input').value = latestFinance.bank_balance;
-    (latestFinance.cards || []).forEach(function (c) { addCardRow(c.label, c.balance); });
+
+  var isCurrent = isCurrentWeekSelected();
+  document.getElementById('finance-form-title').textContent = isCurrent
+    ? 'Add financial info'
+    : 'Add financial info — Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  // Prefill bank/cards from the selected week's own entry if it has one
+  // (fixing/adding to that week specifically); otherwise fall back to the
+  // most recent known values as a starting point.
+  var base = (currentWeekData && currentWeekData.entry_count > 0) ? currentWeekData : latestFinance;
+  if (base) {
+    document.getElementById('bank-balance-input').value = base.bank_balance;
+    (base.cards || []).forEach(function (c) { addCardRow(c.label, c.balance); });
   } else {
     addCardRow();
   }
-  if (!latestFinance || !(latestFinance.cards || []).length) addCardRow();
+  if (!base || !(base.cards || []).length) addCardRow();
   addTransactionRow();
   overlay.classList.add('open');
 });
@@ -569,11 +583,20 @@ form.addEventListener('submit', async function (e) {
     };
   }).filter(function (t) { return t.category; });
 
+  var payload = { bank_balance: bankBalance, cards: cards, income: income, transactions: transactions };
+  if (!isCurrentWeekSelected()) {
+    // Backfilling a past week - stamp it mid-week so it lands in that week's
+    // bucket regardless of what day it is today.
+    var loggedAt = new Date(selectedWeekStart);
+    loggedAt.setUTCDate(loggedAt.getUTCDate() + 3);
+    payload.logged_at = loggedAt.toISOString();
+  }
+
   try {
     var res = await fetch('/api/finance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bank_balance: bankBalance, cards: cards, income: income, transactions: transactions }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Server returned ' + res.status);
     statusEl.textContent = 'Saved.';
