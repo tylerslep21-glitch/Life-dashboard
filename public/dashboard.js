@@ -408,7 +408,7 @@ async function loadNetWorthChart() {
 function renderMultiLine(id, axisSuffix, series) {
   var el = document.getElementById(id);
   if (!el) return;
-  var W = 600, H = 160, pad = 4;
+  var W = 300, H = 90, pad = 4;
 
   var realPoints = series.reduce(function (acc, s) {
     return acc.concat(s.points.filter(function (p) { return p.value != null; }));
