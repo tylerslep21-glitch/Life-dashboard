@@ -8,6 +8,8 @@
     --muted: #A08670;
     --border: rgba(74, 46, 61, 0.12);
     --shadow: rgba(74, 46, 61, 0.07);
+    --skel-base: rgba(74, 46, 61, 0.08);
+    --skel-shine: rgba(74, 46, 61, 0.18);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -21,6 +23,8 @@
       --muted: #A98E7C;
       --border: rgba(245, 230, 216, 0.12);
       --shadow: rgba(0, 0, 0, 0.35);
+      --skel-base: rgba(245, 230, 216, 0.08);
+      --skel-shine: rgba(245, 230, 216, 0.2);
     }
   }
   :root[data-theme="dark"] {
@@ -33,6 +37,8 @@
     --muted: #A98E7C;
     --border: rgba(245, 230, 216, 0.12);
     --shadow: rgba(0, 0, 0, 0.35);
+    --skel-base: rgba(245, 230, 216, 0.08);
+    --skel-shine: rgba(245, 230, 216, 0.2);
   }
   :root[data-theme="light"] {
     --ink: #4A2E3D;
@@ -44,6 +50,8 @@
     --muted: #A08670;
     --border: rgba(74, 46, 61, 0.12);
     --shadow: rgba(74, 46, 61, 0.07);
+    --skel-base: rgba(74, 46, 61, 0.08);
+    --skel-shine: rgba(74, 46, 61, 0.18);
   }
 
   * { box-sizing: border-box; }
@@ -884,4 +892,30 @@
   text-decoration: line-through;
   color: var(--muted);
 }
+
+/* ---- skeleton loading ----
+   Placeholder markup seeded directly into each widget's empty container in
+   index.html. Every widget's load function does a full innerHTML/textContent
+   replace once real data arrives (never appends), so the skeleton just gets
+   overwritten - no JS changes needed to clear it. */
+@keyframes skel-shimmer {
+  0% { background-position: -150% 0; }
+  100% { background-position: 150% 0; }
+}
+.skel {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--skel-base) 25%, var(--skel-shine) 37%, var(--skel-base) 63%);
+  background-size: 400% 100%;
+  animation: skel-shimmer 1.4s ease-in-out infinite;
+}
+.skel-inline { display: inline-block; vertical-align: middle; }
+.skel-line { height: 0.9em; width: 100%; margin: 0.15em 0; }
+.skel-line.w-short { width: 32%; }
+.skel-line.w-medium { width: 55%; }
+.skel-line.w-long { width: 80%; }
+.skel-row { height: 2.2rem; border-radius: 8px; margin-bottom: 0.5rem; }
+.skel-row:last-child { margin-bottom: 0; }
+.skel-block { width: 100%; height: 100%; min-height: 60px; border-radius: 10px; }
+.skel-pill { height: 1.3em; width: 5.5em; border-radius: 999px; }
 

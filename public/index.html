@@ -33,7 +33,7 @@
     <section class="module span-2">
       <div class="module-head"><h2>Calendar</h2></div>
       <p class="sync-stamp" id="calendar-sync-stamp">Loading&hellip;</p>
-      <ul class="event-list" id="calendar-events"></ul>
+      <ul class="event-list" id="calendar-events"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
       <div id="calendar-empty-states"></div>
       <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
         <a class="btn btn-primary" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
@@ -50,7 +50,7 @@
         <h2>Subscriptions</h2>
         <button type="button" class="icon-btn" id="open-subscriptions-form" aria-label="Edit subscriptions">+</button>
       </div>
-      <ul class="breakdown" id="subscriptions-list"></ul>
+      <ul class="breakdown" id="subscriptions-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
     <section class="module">
@@ -58,7 +58,7 @@
         <h2>Exams / Big Projects</h2>
         <button type="button" class="icon-btn" id="open-exams-form" aria-label="Edit exams/projects">+</button>
       </div>
-      <ul class="event-list" id="exams-list"></ul>
+      <ul class="event-list" id="exams-list"><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
     <section class="module countdown-card" id="countdown-card">
@@ -68,16 +68,16 @@
           <button type="button" class="icon-btn countdown-plus" id="open-countdowns-form" aria-label="Edit countdowns">+</button>
         </div>
         <div class="countdown-photo-bottom">
-          <span class="countdown-photo-name" id="countdown-primary-name">&mdash;</span>
+          <span class="countdown-photo-name" id="countdown-primary-name"><span class="skel skel-inline skel-line w-medium" style="height:0.9em;"></span></span>
           <span class="countdown-photo-days" id="countdown-primary-days"></span>
         </div>
       </div>
-      <div class="countdown-secondary" id="countdown-secondary"></div>
+      <div class="countdown-secondary" id="countdown-secondary"><span class="skel skel-row" style="height:1.6rem;"></span></div>
     </section>
 
     <section class="module">
       <div class="module-head"><h2>AI Agent Tracker</h2></div>
-      <ul class="breakdown" id="agent-tracker-list"></ul>
+      <ul class="breakdown" id="agent-tracker-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
     <section class="module span-3">
@@ -85,7 +85,7 @@
         <h2>To-Do</h2>
         <button type="button" class="icon-btn" id="open-todo-form" aria-label="Add a to-do">+</button>
       </div>
-      <ul class="todo-list" id="todo-list"></ul>
+      <ul class="todo-list" id="todo-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
     <div class="section-divider"></div>
@@ -102,15 +102,15 @@
       <div class="stat-grid" style="margin-bottom: 0;">
         <div class="stat">
           <span class="stat-label">Net worth</span>
-          <span class="stat-value" id="stat-net-worth">&mdash;</span>
+          <span class="stat-value" id="stat-net-worth"><span class="skel skel-inline skel-line w-medium" style="height:1em;"></span></span>
         </div>
         <div class="stat">
           <span class="stat-label" id="stat-spent-label">Spent</span>
-          <span class="stat-value" id="stat-spent">&mdash;</span>
+          <span class="stat-value" id="stat-spent"><span class="skel skel-inline skel-line w-short" style="height:1em;"></span></span>
         </div>
         <div class="stat">
           <span class="stat-label" id="stat-income-label">Income</span>
-          <span class="stat-value" id="stat-income">&mdash;</span>
+          <span class="stat-value" id="stat-income"><span class="skel skel-inline skel-line w-short" style="height:1em;"></span></span>
         </div>
       </div>
     </section>
@@ -121,7 +121,7 @@
         <span class="legend-item"><span class="legend-swatch" style="background: var(--series-asset);"></span>Asset</span>
         <span class="legend-item"><span class="legend-swatch" style="background: var(--series-liability);"></span>Liability</span>
       </div>
-      <div class="bar-chart" id="networth-bars"></div>
+      <div class="bar-chart" id="networth-bars"><span class="skel skel-block" style="height:120px;"></span></div>
     </section>
 
     <section class="module viz-root">
@@ -129,20 +129,20 @@
         <h2>Spending by category</h2>
         <button type="button" class="icon-btn" id="open-transactions-form" aria-label="Edit transactions">+</button>
       </div>
-      <div class="bar-chart" id="spending-bars"></div>
+      <div class="bar-chart" id="spending-bars"><span class="skel skel-block" style="height:120px;"></span></div>
     </section>
 
     <section class="module viz-root">
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">BANK &middot; 1YR</span>
       </div>
-      <div class="widget-total" id="bank-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;">&mdash;</div>
+      <div class="widget-total" id="bank-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
         <span class="pill" id="bank-badge" style="background: var(--muted);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-bank"></div>
-        <div class="spark-chart" id="spark-bank"></div>
+        <div class="spark-chart" id="spark-bank"><span class="skel skel-block"></span></div>
       </div>
       <div class="x-axis" id="xaxis-bank"></div>
     </section>
@@ -151,13 +151,13 @@
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">ROBINHOOD &middot; AGENTIC</span>
       </div>
-      <div class="widget-total" id="agentic-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;">&mdash;</div>
+      <div class="widget-total" id="agentic-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
         <span class="pill" id="agentic-badge" style="background: var(--muted);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-agentic"></div>
-        <div class="spark-chart" id="spark-agentic"></div>
+        <div class="spark-chart" id="spark-agentic"><span class="skel skel-block"></span></div>
       </div>
       <div class="x-axis" id="xaxis-agentic"></div>
     </section>
@@ -166,13 +166,13 @@
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">ROBINHOOD &middot; INDIVIDUAL</span>
       </div>
-      <div class="widget-total" id="individual-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;">&mdash;</div>
+      <div class="widget-total" id="individual-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
         <span class="pill" id="individual-badge" style="background: var(--muted);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-individual"></div>
-        <div class="spark-chart" id="spark-individual"></div>
+        <div class="spark-chart" id="spark-individual"><span class="skel skel-block"></span></div>
       </div>
       <div class="x-axis" id="xaxis-individual"></div>
     </section>
