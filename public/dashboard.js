@@ -1321,7 +1321,7 @@ var lastActivityTs = Date.now();
 setInterval(function () {
   if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) return;
   location.reload();
-}, 3 * 60 * 1000);
+}, 6 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
