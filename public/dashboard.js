@@ -1,22 +1,35 @@
 // ---- retro arcade theme picker ----
 // Applied first, before anything else runs, so a saved preference doesn't
-// flash the normal theme for a moment before switching over. Stored value is
-// a theme name ("tropical", "christmas", ...) or absent/empty for off - see
-// retro.css for how each theme's day/night pair actually works.
-var RETRO_STORAGE_KEY = 'lifeDashboardRetro';
+// flash the normal theme for a moment before switching over. On/off and
+// theme choice are separate bits of state on purpose - which theme is
+// selected persists independently of whether retro mode is currently
+// enabled, so toggling off and back on doesn't lose the pick.
+var RETRO_ENABLED_KEY = 'lifeDashboardRetroOn';
+var RETRO_THEME_KEY = 'lifeDashboardRetroTheme';
+var retroToggle = document.getElementById('toggle-retro');
 var retroSelect = document.getElementById('retro-theme-select');
-var savedRetroTheme = localStorage.getItem(RETRO_STORAGE_KEY) || '';
-if (savedRetroTheme) {
-  document.documentElement.setAttribute('data-retro', savedRetroTheme);
+
+var retroEnabled = localStorage.getItem(RETRO_ENABLED_KEY) === 'true';
+var retroTheme = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
+retroSelect.value = retroTheme;
+if (retroEnabled) {
+  document.documentElement.setAttribute('data-retro', retroTheme);
 }
-retroSelect.value = savedRetroTheme;
-retroSelect.addEventListener('change', function () {
-  if (retroSelect.value) {
+
+retroToggle.addEventListener('click', function () {
+  retroEnabled = !retroEnabled;
+  localStorage.setItem(RETRO_ENABLED_KEY, retroEnabled ? 'true' : 'false');
+  if (retroEnabled) {
     document.documentElement.setAttribute('data-retro', retroSelect.value);
-    localStorage.setItem(RETRO_STORAGE_KEY, retroSelect.value);
   } else {
     document.documentElement.removeAttribute('data-retro');
-    localStorage.removeItem(RETRO_STORAGE_KEY);
+  }
+});
+
+retroSelect.addEventListener('change', function () {
+  localStorage.setItem(RETRO_THEME_KEY, retroSelect.value);
+  if (retroEnabled) {
+    document.documentElement.setAttribute('data-retro', retroSelect.value);
   }
 });
 

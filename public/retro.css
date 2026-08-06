@@ -233,6 +233,33 @@
   --good: #2E8B57; --critical: #D42F2F;
 }
 
+/* Tiled tree/candy-cane/gingerbread pattern - low opacity, baked into the
+   SVG shapes themselves rather than as page/element opacity, and only ever
+   on body (which sits behind every .module - those have their own opaque
+   --paper-raised background covering their content), so it never touches
+   anywhere text actually renders. Day and night use different icon colors/
+   opacity since the same fill wouldn't read against both a pale and a near-
+   black background. */
+:root[data-retro="christmas"] body {
+  background-repeat: repeat;
+  background-size: 120px 120px;
+  /* Light-pattern default, same "assume light until told otherwise"
+     convention as the color blocks above - overridden by the
+     prefers-color-scheme/data-theme rules below for real dark mode. */
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20width='120'%20height='120'%3E%0A%3Cpolygon%20points='18,8%206,32%2030,32'%20fill='%231B7A4A'%20opacity='0.16'/%3E%0A%3Cpolygon%20points='18,20%204,46%2032,46'%20fill='%231B7A4A'%20opacity='0.16'/%3E%0A%3Crect%20x='14'%20y='46'%20width='8'%20height='10'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3Cg%20transform='translate%2870,10%29%20rotate%2825%29'%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='34'%20fill='%23C23B3B'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='7'%20fill='white'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='14'%20width='7'%20height='7'%20fill='white'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='28'%20width='7'%20height='6'%20fill='white'%20opacity='0.16'/%3E%0A%3C/g%3E%0A%3Ccircle%20cx='75'%20cy='75'%20r='7'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3Crect%20x='65'%20y='83'%20width='20'%20height='20'%20rx='5'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="christmas"]:not([data-theme="light"]) body {
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20width='120'%20height='120'%3E%0A%3Cpolygon%20points='18,8%206,32%2030,32'%20fill='%236FE0A8'%20opacity='0.2'/%3E%0A%3Cpolygon%20points='18,20%204,46%2032,46'%20fill='%236FE0A8'%20opacity='0.2'/%3E%0A%3Crect%20x='14'%20y='46'%20width='8'%20height='10'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3Cg%20transform='translate%2870,10%29%20rotate%2825%29'%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='34'%20fill='%23FF6F6F'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='7'%20fill='white'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='14'%20width='7'%20height='7'%20fill='white'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='28'%20width='7'%20height='6'%20fill='white'%20opacity='0.2'/%3E%0A%3C/g%3E%0A%3Ccircle%20cx='75'%20cy='75'%20r='7'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3Crect%20x='65'%20y='83'%20width='20'%20height='20'%20rx='5'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3C/svg%3E");
+  }
+}
+:root[data-retro="christmas"][data-theme="dark"] body {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20width='120'%20height='120'%3E%0A%3Cpolygon%20points='18,8%206,32%2030,32'%20fill='%236FE0A8'%20opacity='0.2'/%3E%0A%3Cpolygon%20points='18,20%204,46%2032,46'%20fill='%236FE0A8'%20opacity='0.2'/%3E%0A%3Crect%20x='14'%20y='46'%20width='8'%20height='10'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3Cg%20transform='translate%2870,10%29%20rotate%2825%29'%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='34'%20fill='%23FF6F6F'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='7'%20fill='white'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='14'%20width='7'%20height='7'%20fill='white'%20opacity='0.2'/%3E%0A%3Crect%20x='0'%20y='28'%20width='7'%20height='6'%20fill='white'%20opacity='0.2'/%3E%0A%3C/g%3E%0A%3Ccircle%20cx='75'%20cy='75'%20r='7'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3Crect%20x='65'%20y='83'%20width='20'%20height='20'%20rx='5'%20fill='%23E8C468'%20opacity='0.2'/%3E%0A%3C/svg%3E");
+}
+:root[data-retro="christmas"][data-theme="light"] body {
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20width='120'%20height='120'%3E%0A%3Cpolygon%20points='18,8%206,32%2030,32'%20fill='%231B7A4A'%20opacity='0.16'/%3E%0A%3Cpolygon%20points='18,20%204,46%2032,46'%20fill='%231B7A4A'%20opacity='0.16'/%3E%0A%3Crect%20x='14'%20y='46'%20width='8'%20height='10'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3Cg%20transform='translate%2870,10%29%20rotate%2825%29'%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='34'%20fill='%23C23B3B'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='0'%20width='7'%20height='7'%20fill='white'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='14'%20width='7'%20height='7'%20fill='white'%20opacity='0.16'/%3E%0A%3Crect%20x='0'%20y='28'%20width='7'%20height='6'%20fill='white'%20opacity='0.16'/%3E%0A%3C/g%3E%0A%3Ccircle%20cx='75'%20cy='75'%20r='7'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3Crect%20x='65'%20y='83'%20width='20'%20height='20'%20rx='5'%20fill='%23A9713A'%20opacity='0.16'/%3E%0A%3C/svg%3E");
+}
+
 /* ---- summer ---- */
 :root[data-retro="summer"] {
   --accent: #FF5E7A;
@@ -325,49 +352,49 @@
   --good: #4FE0C4; --critical: #E85D75;
 }
 
-/* ---- spring ---- */
+/* ---- spring (light green, not pink) ---- */
 :root[data-retro="spring"] {
-  --accent: #FF8FB1;
-  --accent-soft: #FFB3CC;
+  --accent: #7ED957;
+  --accent-soft: #A5E887;
   --muted: #A3C9A8;
-  --border: #6FCF97;
-  --shadow: rgba(111, 207, 151, 0.4);
+  --border: #52C77E;
+  --shadow: rgba(82, 199, 126, 0.4);
   --good: #52C77E;
   --critical: #FF6F91;
-  --pill-ink: #1E1430;
+  --pill-ink: #14261A;
   --series-asset: #6FC7E8;
   --series-liability: #FF6F91;
-  --series-1: #FF8FB1;
+  --series-1: #7ED957;
   --series-2: #B39DDB;
   --series-3: #FFD966;
   --series-4: #52C77E;
   --viz-grid: #1E3320;
-  --viz-baseline: #6FCF97;
+  --viz-baseline: #52C77E;
   --ink: #2E4A2E;
   --ink-soft: #4E6E4E;
-  --paper: #D9F0FB;
-  --paper-raised: #FFF0F5;
+  --paper: #E3F7D9;
+  --paper-raised: #FFFFFF;
   --skel-base: rgba(46, 74, 46, 0.08);
   --skel-shine: rgba(46, 74, 46, 0.18);
 }
 @media (prefers-color-scheme: dark) {
   :root[data-retro="spring"]:not([data-theme="light"]) {
-    --ink: #FCE4F2; --ink-soft: #F0C4DC; --paper: #241B3D; --paper-raised: #34294F;
-    --skel-base: rgba(252, 228, 242, 0.08); --skel-shine: rgba(252, 228, 242, 0.2);
+    --ink: #E8F5D9; --ink-soft: #C8E8B8; --paper: #14261A; --paper-raised: #1F3D28;
+    --skel-base: rgba(232, 245, 217, 0.08); --skel-shine: rgba(232, 245, 217, 0.2);
   }
 }
 :root[data-retro="spring"][data-theme="dark"] {
-  --ink: #FCE4F2; --ink-soft: #F0C4DC; --paper: #241B3D; --paper-raised: #34294F;
-  --skel-base: rgba(252, 228, 242, 0.08); --skel-shine: rgba(252, 228, 242, 0.2);
+  --ink: #E8F5D9; --ink-soft: #C8E8B8; --paper: #14261A; --paper-raised: #1F3D28;
+  --skel-base: rgba(232, 245, 217, 0.08); --skel-shine: rgba(232, 245, 217, 0.2);
 }
 :root[data-retro="spring"][data-theme="light"] {
-  --ink: #2E4A2E; --ink-soft: #4E6E4E; --paper: #D9F0FB; --paper-raised: #FFF0F5;
+  --ink: #2E4A2E; --ink-soft: #4E6E4E; --paper: #E3F7D9; --paper-raised: #FFFFFF;
   --skel-base: rgba(46, 74, 46, 0.08); --skel-shine: rgba(46, 74, 46, 0.18);
 }
 :root[data-retro="spring"] .viz-root {
   --series-asset: #6FC7E8; --series-liability: #FF6F91;
-  --series-1: #FF8FB1; --series-2: #B39DDB; --series-3: #FFD966; --series-4: #52C77E;
-  --viz-grid: #1E3320; --viz-baseline: #6FCF97;
+  --series-1: #7ED957; --series-2: #B39DDB; --series-3: #FFD966; --series-4: #52C77E;
+  --viz-grid: #1E3320; --viz-baseline: #52C77E;
   --good: #52C77E; --critical: #FF6F91;
 }
 
