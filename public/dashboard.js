@@ -1,9 +1,14 @@
-// ---- retro arcade theme picker ----
+// ---- seasonal theme + retro style picker ----
 // Applied first, before anything else runs, so a saved preference doesn't
-// flash the normal theme for a moment before switching over. On/off and
-// theme choice are separate bits of state on purpose - which theme is
-// selected persists independently of whether retro mode is currently
-// enabled, so toggling off and back on doesn't lose the pick.
+// flash the default theme for a moment before switching over.
+//
+// Two independent bits of state (see retro.css for the full rationale):
+// data-season ALWAYS applies the picked theme's color palette, retro on or
+// off - that's what makes a "normal" (non-pixel-art) version of every theme
+// exist. data-retro is a plain boolean that layers the 8-bit structural
+// styling (pixel font, chunky shadows, scanlines, tiled pattern) on top when
+// present. Toggling retro off never loses which season is selected, and
+// switching seasons never forces retro on.
 var RETRO_ENABLED_KEY = 'lifeDashboardRetroOn';
 var RETRO_THEME_KEY = 'lifeDashboardRetroTheme';
 var retroToggle = document.getElementById('toggle-retro');
@@ -12,25 +17,24 @@ var retroSelect = document.getElementById('retro-theme-select');
 var retroEnabled = localStorage.getItem(RETRO_ENABLED_KEY) === 'true';
 var retroTheme = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
 retroSelect.value = retroTheme;
+document.documentElement.setAttribute('data-season', retroTheme);
 if (retroEnabled) {
-  document.documentElement.setAttribute('data-retro', retroTheme);
+  document.documentElement.setAttribute('data-retro', 'on');
 }
 
 retroToggle.addEventListener('click', function () {
   retroEnabled = !retroEnabled;
   localStorage.setItem(RETRO_ENABLED_KEY, retroEnabled ? 'true' : 'false');
   if (retroEnabled) {
-    document.documentElement.setAttribute('data-retro', retroSelect.value);
+    document.documentElement.setAttribute('data-retro', 'on');
   } else {
     document.documentElement.removeAttribute('data-retro');
   }
 });
 
 retroSelect.addEventListener('change', function () {
+  document.documentElement.setAttribute('data-season', retroSelect.value);
   localStorage.setItem(RETRO_THEME_KEY, retroSelect.value);
-  if (retroEnabled) {
-    document.documentElement.setAttribute('data-retro', retroSelect.value);
-  }
 });
 
 // ---- clock ----
