@@ -1043,6 +1043,13 @@ document.getElementById('countdown-add-form').addEventListener('submit', async f
 });
 
 // ---- AI Agent Tracker (read-only display - pushed by an external scheduled agent) ----
+// An agent whose status_summary is still "OK" from the last time it ran
+// looks fine at a glance even if it silently stopped running days ago -
+// status_summary alone can't tell you that. There's no per-agent expected
+// interval on file (agent_status has no such column), so this is a single
+// blanket threshold rather than tuned per agent's actual cadence.
+var AGENT_STALE_HOURS = 24;
+
 async function loadAgentTracker() {
   var list = document.getElementById('agent-tracker-list');
   try {
@@ -1053,21 +1060,25 @@ async function loadAgentTracker() {
     }
     list.innerHTML = agents.map(function (a) {
       var statusLower = (a.status_summary || '').toLowerCase();
-      var pillColor = statusLower.indexOf('error') !== -1 ? 'var(--critical)'
+      var lastRunDate = new Date(a.last_run_at);
+      var hoursSince = (Date.now() - lastRunDate.getTime()) / 3600000;
+      var stale = hoursSince > AGENT_STALE_HOURS;
+      var pillColor = stale || statusLower.indexOf('error') !== -1 ? 'var(--critical)'
         : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
         : 'var(--good)';
-      var lastRun = new Date(a.last_run_at).toLocaleString(undefined, {
+      var pillText = (stale ? '⚠ ' : '') + a.status_summary;
+      var lastRun = lastRunDate.toLocaleString(undefined, {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       });
       return (
         '<li style="display:block;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;">' +
             '<span style="font-weight:600;">' + a.agent_name + '</span>' +
-            '<span class="pill" style="background:' + pillColor + ';">' + a.status_summary + '</span>' +
+            '<span class="pill" style="background:' + pillColor + ';">' + pillText + '</span>' +
           '</div>' +
           '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:0.2rem;">' +
             '<span>' + (a.action_taken || '&mdash;') + '</span>' +
-            '<span>' + lastRun + '</span>' +
+            '<span' + (stale ? ' style="color:var(--critical);font-weight:700;"' : '') + '>' + lastRun + '</span>' +
           '</div>' +
         '</li>'
       );
