@@ -51,7 +51,15 @@ app.use((req, res, next) => {
   res.redirect('/login');
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// no-cache (not no-store) so the browser still keeps a local copy but must
+// revalidate with the server (via ETag) on every load instead of trusting a
+// cached copy for some heuristic amount of time. Without this, iOS treats a
+// home-screen/standalone PWA - what this dashboard is meant to run as - far
+// more aggressively than a normal browser tab, and a plain in-app reload can
+// keep serving JS/CSS from days ago even after a fresh deploy.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/finance', require('./routes/finance'));
