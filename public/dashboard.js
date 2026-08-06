@@ -399,8 +399,22 @@ document.getElementById('week-next').addEventListener('click', function () {
 async function renderBankWidget() {
   try {
     var history = await getJSON('/api/finance/history?limit=52');
-    var series = history.map(function (h) { return Number(h.bank_balance); });
-    var dates = history.map(function (h) { return fmtDate(h.logged_at); });
+    // Backfilling/correcting a past week adds another row for that week
+    // rather than overwriting it - flows like transactions still need to
+    // accumulate across entries within a week (see the finance-form submit
+    // handler). For this point-in-time balance chart though, collapse down
+    // to one point per week (the latest entry wins) so a correction updates
+    // that week's point instead of showing up as an extra blip next to it.
+    var latestPerWeek = {};
+    history.forEach(function (h) {
+      var wk = isoDate(mondayOf(new Date(h.logged_at)));
+      if (!latestPerWeek[wk] || new Date(h.logged_at) > new Date(latestPerWeek[wk].logged_at)) {
+        latestPerWeek[wk] = h;
+      }
+    });
+    var weeklyHistory = Object.keys(latestPerWeek).sort().map(function (wk) { return latestPerWeek[wk]; });
+    var series = weeklyHistory.map(function (h) { return Number(h.bank_balance); });
+    var dates = weeklyHistory.map(function (h) { return fmtDate(h.logged_at); });
     var total = series.length ? series[series.length - 1] : 0;
     document.getElementById('bank-total').textContent = fmtDollar(total, { cents: true });
     var badge = document.getElementById('bank-badge');
@@ -630,10 +644,22 @@ form.addEventListener('submit', async function (e) {
 
   var payload = { bank_balance: bankBalance, cards: cards, income: income, transactions: transactions };
   if (!isCurrentWeekSelected()) {
-    // Backfilling a past week - stamp it mid-week so it lands in that week's
-    // bucket regardless of what day it is today.
-    var loggedAt = new Date(selectedWeekStart);
-    loggedAt.setUTCDate(loggedAt.getUTCDate() + 3);
+    var loggedAt;
+    if (currentWeekData && currentWeekData.entry_count > 0 && currentWeekData.logged_at) {
+      // This week already has an entry - land 1s after its logged_at rather
+      // than at a fixed mid-week stamp. /api/finance/week picks whichever
+      // entry has the latest logged_at as "current" for point-in-time fields
+      // (bank_balance, cards); a fixed Wednesday stamp could sort *before*
+      // an existing entry logged later in the week, silently losing a
+      // correction to the older figure instead of overwriting it.
+      loggedAt = new Date(currentWeekData.logged_at);
+      loggedAt.setUTCSeconds(loggedAt.getUTCSeconds() + 1);
+    } else {
+      // No entry yet this week - stamp it mid-week so it lands in that
+      // week's bucket regardless of what day it is today.
+      loggedAt = new Date(selectedWeekStart);
+      loggedAt.setUTCDate(loggedAt.getUTCDate() + 3);
+    }
     payload.logged_at = loggedAt.toISOString();
   }
 
