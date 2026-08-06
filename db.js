@@ -77,6 +77,11 @@ CREATE TABLE IF NOT EXISTS todos (
 ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS purchase_date DATE;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS action_taken TEXT;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEFAULT true;
+-- How often this agent is actually expected to run, e.g. 24 for daily, 720 for
+-- monthly - lets the dashboard's stale-agent warning use a threshold matching
+-- each agent's real cadence instead of one blanket number. NULL (unset by
+-- whatever pushes this agent's status) falls back to a dashboard-side default.
+ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS expected_interval_hours NUMERIC;
 ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- Now Playing feature was scrapped (2026-07-28) - iOS background execution limits

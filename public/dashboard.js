@@ -1045,10 +1045,14 @@ document.getElementById('countdown-add-form').addEventListener('submit', async f
 // ---- AI Agent Tracker (read-only display - pushed by an external scheduled agent) ----
 // An agent whose status_summary is still "OK" from the last time it ran
 // looks fine at a glance even if it silently stopped running days ago -
-// status_summary alone can't tell you that. There's no per-agent expected
-// interval on file (agent_status has no such column), so this is a single
-// blanket threshold rather than tuned per agent's actual cadence.
-var AGENT_STALE_HOURS = 24;
+// status_summary alone can't tell you that. Uses each agent's own
+// expected_interval_hours if it's set (e.g. 720 for a monthly agent) so a
+// slow-cadence agent doesn't get flagged for simply not having run today;
+// falls back to this default for agents with nothing on file. 50% grace on
+// top of the interval before actually flagging - "hasn't run in a while" is
+// normal, "hasn't run in 1.5x its own cadence" is the "probably dead" signal.
+var AGENT_STALE_HOURS_DEFAULT = 24;
+var AGENT_STALE_GRACE = 1.5;
 
 async function loadAgentTracker() {
   var list = document.getElementById('agent-tracker-list');
@@ -1062,7 +1066,8 @@ async function loadAgentTracker() {
       var statusLower = (a.status_summary || '').toLowerCase();
       var lastRunDate = new Date(a.last_run_at);
       var hoursSince = (Date.now() - lastRunDate.getTime()) / 3600000;
-      var stale = hoursSince > AGENT_STALE_HOURS;
+      var expectedHours = Number(a.expected_interval_hours) || AGENT_STALE_HOURS_DEFAULT;
+      var stale = hoursSince > expectedHours * AGENT_STALE_GRACE;
       var pillColor = stale || statusLower.indexOf('error') !== -1 ? 'var(--critical)'
         : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
         : 'var(--good)';

@@ -18,21 +18,24 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { agent_name, status_summary, action_taken, recurring, last_run_at } = req.body;
+  const { agent_name, status_summary, action_taken, recurring, last_run_at, expected_interval_hours } = req.body;
   if (!agent_name || !status_summary) {
     return res.status(400).json({ error: 'agent_name, status_summary are required' });
   }
   const { rows } = await pool.query(
-    `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, updated_at)
-     VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), now())
+    `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, expected_interval_hours, updated_at)
+     VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), $6, now())
      ON CONFLICT (agent_name) DO UPDATE
        SET status_summary = EXCLUDED.status_summary,
            action_taken = EXCLUDED.action_taken,
            recurring = EXCLUDED.recurring,
            last_run_at = EXCLUDED.last_run_at,
+           -- Most callers won't know about this field yet - don't let an
+           -- omitted value wipe out one set earlier (e.g. via the dashboard).
+           expected_interval_hours = COALESCE(EXCLUDED.expected_interval_hours, agent_status.expected_interval_hours),
            updated_at = now()
      RETURNING *`,
-    [agent_name, status_summary, action_taken || null, recurring, last_run_at || null]
+    [agent_name, status_summary, action_taken || null, recurring, last_run_at || null, expected_interval_hours || null]
   );
   res.status(201).json(rows[0]);
 });
