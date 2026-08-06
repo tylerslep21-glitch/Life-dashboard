@@ -1267,86 +1267,81 @@ setInterval(function () { location.reload(); }, 3 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
-// wall-mounted display never looks frozen. Hitting the bottom glides back to
-// the top (instead of snapping) so the loop reads as one continuous motion.
+// wall-mounted display never looks frozen. Rather than scrolling to the
+// bottom and animating back up (which always reads as a "reset" no matter
+// how gently it's eased), this appends an inert visual duplicate of .shell
+// right below the real one - the same seamless-loop trick startTickerScroll
+// already uses horizontally - and scrolls through it with wraparound modulo
+// math. The wrap happens to land exactly on a content repeat, so it's
+// invisible: the page just appears to keep scrolling down forever.
+//
 // Only real user input counts as "activity" - deliberately not listening for
 // 'scroll', since our own programmatic scrolling would otherwise keep
-// resetting the idle clock and the auto-scroll would never resume.
-//
-// Position is tracked in a local float (autoScrollY) rather than re-read from
-// window.scrollY/scrollHeight every frame - those force a synchronous layout
-// recalculation, and doing that at 60fps on an iPad-class device is what
-// produced the choppiness. maxScroll is measured once per cycle instead.
+// resetting the idle clock and the auto-scroll would never resume. Position
+// is tracked in a local float rather than re-read from window.scrollY every
+// frame - forcing a layout recalculation at 60fps is what caused the
+// original stutter on iPad.
 var AUTO_SCROLL_IDLE_MS = 60 * 1000;
-var AUTO_SCROLL_PX_PER_SEC = 55;
-var AUTO_SCROLL_RESET_MS = 2600;
+var AUTO_SCROLL_PX_PER_SEC = 42;
 
 var lastActivityTs = Date.now();
+var shellEl = document.querySelector('.shell');
+var shellClone = null;
+
+function removeShellClone() {
+  if (shellClone && shellClone.parentNode) shellClone.parentNode.removeChild(shellClone);
+  shellClone = null;
+  autoScrollArmed = false;
+}
+
 ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
-  window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
+  window.addEventListener(evt, function () {
+    lastActivityTs = Date.now();
+    removeShellClone();
+  }, { passive: true });
 });
 
-var autoScrollArmed = false;   // measured maxScroll for the in-progress cycle
-var autoScrollY = 0;
-var autoScrollMax = 0;
+function buildShellClone() {
+  var clone = shellEl.cloneNode(true);
+  clone.setAttribute('aria-hidden', 'true');
+  clone.removeAttribute('id');
+  clone.style.marginTop = '0'; // must butt directly against the original - no gap - to repeat seamlessly
+  clone.style.pointerEvents = 'none';
+  clone.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+  shellEl.parentNode.insertBefore(clone, shellEl.nextSibling);
+  return clone;
+}
+
+var autoScrollArmed = false;
+var autoScrollBase = 0;   // document Y of the top of the real .shell
+var autoScrollPeriod = 0; // px of scroll = exactly one repeat of the content
+var autoScrollY = 0;      // position within [0, autoScrollPeriod)
 var autoScrollLastTs = null;
-var autoScrollResetting = false;
-
-function easeInOutQuad(t) {
-  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-}
-
-function autoScrollResetToTop() {
-  autoScrollResetting = true;
-  var startY = autoScrollY;
-  var startTs = null;
-
-  function step(ts) {
-    if (startTs === null) startTs = ts;
-    var t = Math.min(1, (ts - startTs) / AUTO_SCROLL_RESET_MS);
-    autoScrollY = startY * (1 - easeInOutQuad(t));
-    window.scrollTo(0, autoScrollY);
-    if (t < 1) {
-      requestAnimationFrame(step);
-    } else {
-      autoScrollResetting = false;
-      autoScrollArmed = false; // re-measure maxScroll fresh on the next cycle
-      autoScrollLastTs = null;
-    }
-  }
-  requestAnimationFrame(step);
-}
 
 function autoScrollStep(ts) {
   requestAnimationFrame(autoScrollStep);
-  if (autoScrollResetting) return;
 
   if (Date.now() - lastActivityTs < AUTO_SCROLL_IDLE_MS) {
-    autoScrollArmed = false;
     autoScrollLastTs = null;
     return;
   }
 
   if (!autoScrollArmed) {
-    autoScrollY = window.scrollY;
-    autoScrollMax = document.documentElement.scrollHeight - window.innerHeight;
+    if (!shellClone) shellClone = buildShellClone();
+    autoScrollBase = shellEl.getBoundingClientRect().top + window.scrollY;
+    autoScrollPeriod = (shellClone.getBoundingClientRect().top + window.scrollY) - autoScrollBase;
+    if (autoScrollPeriod <= 0) return; // page too short to need scrolling
+    var current = window.scrollY - autoScrollBase;
+    autoScrollY = ((current % autoScrollPeriod) + autoScrollPeriod) % autoScrollPeriod;
     autoScrollArmed = true;
     autoScrollLastTs = ts;
     return;
   }
-  if (autoScrollMax <= 0) return;
 
   var dt = ts - autoScrollLastTs;
   autoScrollLastTs = ts;
-  autoScrollY += AUTO_SCROLL_PX_PER_SEC * dt / 1000;
-
-  if (autoScrollY >= autoScrollMax) {
-    autoScrollY = autoScrollMax;
-    window.scrollTo(0, autoScrollY);
-    autoScrollResetToTop();
-    return;
-  }
-  window.scrollTo(0, autoScrollY);
+  autoScrollY = (autoScrollY + AUTO_SCROLL_PX_PER_SEC * dt / 1000) % autoScrollPeriod;
+  window.scrollTo(0, autoScrollBase + autoScrollY);
 }
 requestAnimationFrame(autoScrollStep);
 
