@@ -12,33 +12,33 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
 :root[data-retro="on"] {
-  font-size: 112%; /* VT323 reads narrower/smaller than the system sans at the same rem */
-  --ink: #00ffcc;
-  --ink-soft: #33d1c6;
-  --paper: #0a0014;
-  --paper-raised: #150022;
-  --accent: #ff2079;
-  --accent-soft: #ff5c9d;
-  --muted: #8a7cff;
-  --border: #ff2079;
-  --shadow: rgba(255, 32, 121, 0.45);
-  --skel-base: rgba(0, 255, 204, 0.08);
-  --skel-shine: rgba(0, 255, 204, 0.2);
-  --good: #39ff14;
-  --critical: #ff4d4d;
+  font-size: 118%; /* VT323 reads narrower/smaller than the system sans at the same rem */
+  --ink: #FFE9C7;
+  --ink-soft: #F2C6A0;
+  --paper: #032A2E;
+  --paper-raised: #0B3B3E;
+  --accent: #FF6F61;
+  --accent-soft: #FF9770;
+  --muted: #C9A875;
+  --border: #2DD4BF;
+  --shadow: rgba(45, 212, 191, 0.4);
+  --skel-base: rgba(255, 233, 199, 0.08);
+  --skel-shine: rgba(255, 233, 199, 0.2);
+  --good: #34D399;
+  --critical: #F4574B;
 }
 
 :root[data-retro="on"] .viz-root {
-  --series-asset: #00e5ff;
-  --series-liability: #ff2079;
-  --series-1: #ff2079;
-  --series-2: #8a7cff;
-  --series-3: #ffe600;
-  --series-4: #39ff14;
-  --viz-grid: #2a0f3d;
-  --viz-baseline: #ff2079;
-  --good: #39ff14;
-  --critical: #ff4d4d;
+  --series-asset: #38BDF8;
+  --series-liability: #F4574B;
+  --series-1: #FF8C42;
+  --series-2: #FF6F91;
+  --series-3: #FFD166;
+  --series-4: #34D399;
+  --viz-grid: #0F3B3E;
+  --viz-baseline: #2DD4BF;
+  --good: #34D399;
+  --critical: #F4574B;
 }
 
 :root[data-retro="on"] * {
@@ -47,7 +47,7 @@
 }
 
 :root[data-retro="on"] body {
-  text-shadow: 0 0 1px rgba(0, 255, 204, 0.35);
+  text-shadow: 0 0 1px rgba(255, 233, 199, 0.25);
 }
 
 /* Scanline overlay - purely decorative, never intercepts clicks/taps. */
@@ -73,7 +73,7 @@
   font-size: 0.85rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-  text-shadow: 2px 2px 0 var(--accent);
+  text-shadow: 1px 1px 0 var(--accent);
 }
 
 :root[data-retro="on"] header.masthead {
@@ -101,11 +101,22 @@
   box-shadow: none;
 }
 
+/* .pill and .bar-fill span both hardcode near-white text in styles.css,
+   which reads poorly against these theme's bright fills (the green "Active"/
+   status pills, the "up" trend badges, the light-blue asset bars) - swap to
+   the dark background color instead, which stays readable against every
+   fill color this theme uses since they're all mid-to-high brightness. */
 :root[data-retro="on"] .pill {
   font-family: 'Press Start 2P', monospace !important;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
+  color: var(--paper) !important;
   border: 2px solid rgba(0, 0, 0, 0.5);
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+
+:root[data-retro="on"] .bar-fill span {
+  color: var(--paper) !important;
+  font-weight: 700;
 }
 
 :root[data-retro="on"] .ticker-bar {
