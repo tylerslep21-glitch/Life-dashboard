@@ -1088,6 +1088,39 @@ async function loadAgentTracker() {
   }
 }
 
+// ---- Railway services status + usage ----
+async function loadRailwayStatus() {
+  var list = document.getElementById('railway-status-list');
+  var usageLine = document.getElementById('railway-usage-line');
+  try {
+    var data = await getJSON('/api/railway/status');
+
+    list.innerHTML = data.services.map(function (s) {
+      var healthy = s.status === 'SUCCESS';
+      var pillColor = healthy ? 'var(--good)' : 'var(--critical)';
+      var deployed = s.deployedAt
+        ? new Date(s.deployedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+        : 'never deployed';
+      return (
+        '<li>' +
+          '<span>' + s.name + '</span>' +
+          '<span class="amt"><span class="pill" style="background:' + pillColor + ';margin-right:0.4rem;">' + s.status + '</span>' + deployed + '</span>' +
+        '</li>'
+      );
+    }).join('');
+
+    if (data.usage) {
+      usageLine.textContent = 'Billing period: ' + fmtDollar(data.usage.currentBillDollars, { cents: true }) +
+        ' so far, est. ' + fmtDollar(data.usage.estimatedBillDollars, { cents: true }) + ' by period end';
+    } else {
+      usageLine.textContent = 'Usage unavailable';
+    }
+  } catch (err) {
+    list.innerHTML = '<li>Failed to load</li>';
+    usageLine.textContent = '';
+  }
+}
+
 // ---- To-Do list (drag to reorder, check off, disappears an hour after checking) ----
 var currentTodos = [];
 var draggedTodoId = null;
@@ -1471,5 +1504,6 @@ loadSubscriptions();
 loadExams();
 loadCountdowns();
 loadAgentTracker();
+loadRailwayStatus();
 loadTodos();
 loadFinanceAndRobinhood();
