@@ -1109,16 +1109,16 @@ async function loadRailwayStatus() {
       );
     }).join('');
 
-    // Dollar billing isn't reachable via API token (Railway restricts that
-    // to real user logins) - this is raw resource usage across the whole
-    // workspace for the current period instead.
+    // Real dollar billing isn't reachable via API token (Railway restricts
+    // that to real user logins) - estimatedDollars is computed server-side
+    // from Railway's published per-second rates, not an authoritative bill.
+    // See routes/railway.js for how that math works and its caveats.
     if (data.usage) {
       var u = data.usage;
-      usageLine.textContent = 'This period: ' +
-        Math.round(u.MEMORY_USAGE_GB || 0).toLocaleString() + ' GB-hrs memory · ' +
-        (u.CPU_USAGE || 0).toFixed(1) + ' vCPU-hrs · ' +
-        (u.NETWORK_TX_GB || 0).toFixed(2) + ' GB egress · ' +
-        Math.round(u.DISK_USAGE_GB || 0).toLocaleString() + ' GB-hrs disk';
+      usageLine.textContent = '~' + fmtDollar(u.estimatedDollars || 0, { cents: true }) + ' est. this period · ' +
+        Math.round(u.MEMORY_USAGE_GB || 0).toLocaleString() + ' GB-min memory · ' +
+        (u.CPU_USAGE || 0).toFixed(1) + ' vCPU-min · ' +
+        (u.NETWORK_TX_GB || 0).toFixed(2) + ' GB egress';
     } else {
       usageLine.textContent = 'Usage unavailable';
     }

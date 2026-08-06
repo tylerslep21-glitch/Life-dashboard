@@ -31,9 +31,29 @@ async function railwayCLI(args) {
 // account API token instead of a real interactive user login. That's a
 // deliberate Railway restriction, not something fixable from here. The raw
 // resource-usage GraphQL query below has no such restriction and works fine
-// with the token - it just reports native units (GB-hours, vCPU-hours, GB
-// transferred) instead of a dollar amount.
+// with the token.
+//
+// To turn that back into a dollar estimate: Railway's published per-second
+// rates (railway.com/pricing) are $0.00000772/vCPU-sec, $0.00000386/GB-sec
+// (memory), $0.05/GB (egress, not time-based), $0.00000006/GB-sec (volume).
+// The measurement values this query returns aren't in GB-hours/vCPU-hours
+// despite the field names - cross-checking a live snapshot against a real
+// `railway usage --json` dollar breakdown (fetched separately, via an actual
+// user login) showed they're GB-*minutes*/vCPU-*minutes* instead: dividing
+// the known dollar amounts by the published hourly rate reproduced this
+// query's raw values almost exactly once treated as per-minute, not
+// per-hour. So: hourly rate / 60 = the right per-minute multiplier here.
+// This is still an estimate, not real billing math - it won't capture
+// anything Railway bills outside these four measurements (e.g. backups),
+// and per-second rounding at the actual billing boundary could differ
+// slightly. Label it "~" wherever it's shown.
 const USAGE_MEASUREMENTS = ['MEMORY_USAGE_GB', 'CPU_USAGE', 'NETWORK_TX_GB', 'DISK_USAGE_GB'];
+const RATE_PER_MINUTE = {
+  CPU_USAGE: 0.00000772 * 60,       // $/vCPU-minute
+  MEMORY_USAGE_GB: 0.00000386 * 60, // $/GB-minute
+  DISK_USAGE_GB: 0.00000006 * 60,   // $/GB-minute
+};
+const RATE_PER_GB = { NETWORK_TX_GB: 0.05 }; // egress isn't time-integrated
 
 async function getWorkspaceUsage() {
   const query = `query($w: String!, $m: [MetricMeasurement!]!) {
@@ -55,6 +75,13 @@ async function getWorkspaceUsage() {
   json.data.usage.forEach((row) => {
     totals[row.measurement] = (totals[row.measurement] || 0) + row.value;
   });
+
+  let estimatedDollars = 0;
+  Object.keys(totals).forEach((measurement) => {
+    const rate = RATE_PER_MINUTE[measurement] || RATE_PER_GB[measurement] || 0;
+    estimatedDollars += totals[measurement] * rate;
+  });
+  totals.estimatedDollars = estimatedDollars;
   return totals;
 }
 
