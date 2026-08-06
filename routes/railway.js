@@ -15,14 +15,8 @@ const SERVICES = [
   { project: 'ad1680c7-3cfb-4ade-8cba-f16638eb7d24', environment: '3571b2a3-a060-4dbf-ad08-179190b6abf6', service: 'fdd3b057-7044-4f72-b773-81962dfadb88', name: 'Postgres' },
   { project: 'b828dd3c-0f52-4c7c-b9a8-8131cedad877', environment: 'f2662681-7a13-427c-8401-8a273f85b7c5', service: '0e91261a-93a4-4de5-807a-257534133ad3', name: 'fantasy-woj-bot' },
 ];
+const WORKSPACE_ID = '3c9a2d2c-9116-4689-8a24-31f2bb93c409';
 
-// Billing dollars aren't exposed by Railway's public GraphQL API - only the
-// CLI itself produces them (internal endpoint or client-side calculation we
-// can't safely reimplement without risking it silently drifting from what
-// Railway actually charges). Shelling out to the real CLI, authenticated via
-// RAILWAY_API_TOKEN (an account-scoped token - see Railway's docs on
-// unattended/headless auth), gets the exact same numbers instead of us
-// guessing at pricing math.
 async function railwayCLI(args) {
   const { stdout } = await execFileAsync('npx', ['--no-install', 'railway'].concat(args), {
     env: Object.assign({}, process.env, { RAILWAY_API_TOKEN: process.env.RAILWAY_API_TOKEN }),
@@ -30,6 +24,38 @@ async function railwayCLI(args) {
     maxBuffer: 4 * 1024 * 1024,
   });
   return JSON.parse(stdout);
+}
+
+// Dollar billing figures are NOT reachable this way - confirmed by testing:
+// `railway usage --json` returns UNAUTHORIZED when authenticated via an
+// account API token instead of a real interactive user login. That's a
+// deliberate Railway restriction, not something fixable from here. The raw
+// resource-usage GraphQL query below has no such restriction and works fine
+// with the token - it just reports native units (GB-hours, vCPU-hours, GB
+// transferred) instead of a dollar amount.
+const USAGE_MEASUREMENTS = ['MEMORY_USAGE_GB', 'CPU_USAGE', 'NETWORK_TX_GB', 'DISK_USAGE_GB'];
+
+async function getWorkspaceUsage() {
+  const query = `query($w: String!, $m: [MetricMeasurement!]!) {
+    usage(workspaceId: $w, measurements: $m) { measurement value }
+  }`;
+  const res = await fetch('https://backboard.railway.com/graphql/v2', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + process.env.RAILWAY_API_TOKEN,
+    },
+    body: JSON.stringify({ query, variables: { w: WORKSPACE_ID, m: USAGE_MEASUREMENTS } }),
+  });
+  const json = await res.json();
+  if (json.errors) throw new Error(json.errors[0].message);
+  // One row per project per measurement - sum across projects for a
+  // workspace-wide total.
+  const totals = {};
+  json.data.usage.forEach((row) => {
+    totals[row.measurement] = (totals[row.measurement] || 0) + row.value;
+  });
+  return totals;
 }
 
 router.get('/status', async (req, res) => {
@@ -59,10 +85,9 @@ router.get('/status', async (req, res) => {
 
   let usage = null;
   try {
-    usage = await railwayCLI(['usage', '--json']);
+    usage = await getWorkspaceUsage();
   } catch (err) {
-    // Leave usage null - service statuses above are the more critical half.
-    console.error('railway usage --json failed:', err.stderr || err.message);
+    console.error('workspace usage query failed:', err.message);
   }
 
   res.json({ services, usage });

@@ -1109,9 +1109,16 @@ async function loadRailwayStatus() {
       );
     }).join('');
 
+    // Dollar billing isn't reachable via API token (Railway restricts that
+    // to real user logins) - this is raw resource usage across the whole
+    // workspace for the current period instead.
     if (data.usage) {
-      usageLine.textContent = 'Billing period: ' + fmtDollar(data.usage.currentBillDollars, { cents: true }) +
-        ' so far, est. ' + fmtDollar(data.usage.estimatedBillDollars, { cents: true }) + ' by period end';
+      var u = data.usage;
+      usageLine.textContent = 'This period: ' +
+        Math.round(u.MEMORY_USAGE_GB || 0).toLocaleString() + ' GB-hrs memory · ' +
+        (u.CPU_USAGE || 0).toFixed(1) + ' vCPU-hrs · ' +
+        (u.NETWORK_TX_GB || 0).toFixed(2) + ' GB egress · ' +
+        Math.round(u.DISK_USAGE_GB || 0).toLocaleString() + ' GB-hrs disk';
     } else {
       usageLine.textContent = 'Usage unavailable';
     }
