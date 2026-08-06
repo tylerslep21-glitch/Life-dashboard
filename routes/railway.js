@@ -62,6 +62,7 @@ router.get('/status', async (req, res) => {
     usage = await railwayCLI(['usage', '--json']);
   } catch (err) {
     // Leave usage null - service statuses above are the more critical half.
+    console.error('railway usage --json failed:', err.stderr || err.message);
   }
 
   res.json({ services, usage });
