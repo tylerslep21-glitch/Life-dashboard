@@ -11,11 +11,13 @@
     "node": "20.x"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@railway/cli": "^5.30.4",
     "@simplewebauthn/server": "^13.3.2",
     "express": "^4.19.2",
     "node-ical": "^0.27.1",
     "pg": "^8.11.5",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "zod": "^4.4.3"
   }
 }
