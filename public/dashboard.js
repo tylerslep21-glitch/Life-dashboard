@@ -1267,37 +1267,50 @@ setInterval(function () { location.reload(); }, 3 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
-// wall-mounted display never looks frozen. Hitting the bottom eases back to
+// wall-mounted display never looks frozen. Hitting the bottom glides back to
 // the top (instead of snapping) so the loop reads as one continuous motion.
 // Only real user input counts as "activity" - deliberately not listening for
 // 'scroll', since our own programmatic scrolling would otherwise keep
 // resetting the idle clock and the auto-scroll would never resume.
+//
+// Position is tracked in a local float (autoScrollY) rather than re-read from
+// window.scrollY/scrollHeight every frame - those force a synchronous layout
+// recalculation, and doing that at 60fps on an iPad-class device is what
+// produced the choppiness. maxScroll is measured once per cycle instead.
 var AUTO_SCROLL_IDLE_MS = 60 * 1000;
-var AUTO_SCROLL_PX_PER_SEC = 40;
-var AUTO_SCROLL_RESET_MS = 1200;
+var AUTO_SCROLL_PX_PER_SEC = 55;
+var AUTO_SCROLL_RESET_MS = 2600;
 
 var lastActivityTs = Date.now();
 ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
   window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
 });
 
-var autoScrollResetting = false;
+var autoScrollArmed = false;   // measured maxScroll for the in-progress cycle
+var autoScrollY = 0;
+var autoScrollMax = 0;
 var autoScrollLastTs = null;
+var autoScrollResetting = false;
+
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
 
 function autoScrollResetToTop() {
   autoScrollResetting = true;
-  var startY = window.scrollY;
+  var startY = autoScrollY;
   var startTs = null;
 
   function step(ts) {
     if (startTs === null) startTs = ts;
     var t = Math.min(1, (ts - startTs) / AUTO_SCROLL_RESET_MS);
-    var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease-in-out
-    window.scrollTo(0, startY * (1 - eased));
+    autoScrollY = startY * (1 - easeInOutQuad(t));
+    window.scrollTo(0, autoScrollY);
     if (t < 1) {
       requestAnimationFrame(step);
     } else {
       autoScrollResetting = false;
+      autoScrollArmed = false; // re-measure maxScroll fresh on the next cycle
       autoScrollLastTs = null;
     }
   }
@@ -1309,28 +1322,31 @@ function autoScrollStep(ts) {
   if (autoScrollResetting) return;
 
   if (Date.now() - lastActivityTs < AUTO_SCROLL_IDLE_MS) {
+    autoScrollArmed = false;
     autoScrollLastTs = null;
     return;
   }
 
-  var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-  if (maxScroll <= 0) {
-    autoScrollLastTs = null;
-    return;
-  }
-
-  if (autoScrollLastTs === null) {
+  if (!autoScrollArmed) {
+    autoScrollY = window.scrollY;
+    autoScrollMax = document.documentElement.scrollHeight - window.innerHeight;
+    autoScrollArmed = true;
     autoScrollLastTs = ts;
     return;
   }
+  if (autoScrollMax <= 0) return;
+
   var dt = ts - autoScrollLastTs;
   autoScrollLastTs = ts;
+  autoScrollY += AUTO_SCROLL_PX_PER_SEC * dt / 1000;
 
-  if (window.scrollY >= maxScroll - 1) {
+  if (autoScrollY >= autoScrollMax) {
+    autoScrollY = autoScrollMax;
+    window.scrollTo(0, autoScrollY);
     autoScrollResetToTop();
     return;
   }
-  window.scrollBy(0, AUTO_SCROLL_PX_PER_SEC * dt / 1000);
+  window.scrollTo(0, autoScrollY);
 }
 requestAnimationFrame(autoScrollStep);
 
