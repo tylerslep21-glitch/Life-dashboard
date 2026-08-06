@@ -15,21 +15,6 @@ function weekStart(date) {
   return d;
 }
 
-// TEMPORARY - one-time cleanup of stale duplicate rows for the week of
-// 2026-07-27, left over from testing the backfill-ordering bug before it was
-// fixed (see commit bcde54d). All five shared the exact same
-// 2026-07-30T00:00:00.000Z timestamp with no way to tell them apart; id 20
-// (2026-07-30T00:00:01.000Z, $2,981.95) is the one real entry made after the
-// fix and is NOT touched. Remove this route after running it once.
-router.get('/cleanup-duplicates-2026-08-06', async (req, res) => {
-  const ids = [12, 16, 17, 18, 19];
-  const { rows } = await pool.query(
-    'DELETE FROM finance_entries WHERE id = ANY($1) RETURNING id',
-    [ids]
-  );
-  res.json({ deleted: rows.map((r) => r.id) });
-});
-
 router.get('/latest', async (req, res) => {
   const { rows } = await pool.query(
     'SELECT * FROM finance_entries ORDER BY logged_at DESC LIMIT 1'
