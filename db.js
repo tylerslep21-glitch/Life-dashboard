@@ -103,6 +103,27 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_used_at TIMESTAMPTZ
 );
+
+-- Minimal OAuth 2.1 + dynamic client registration (RFC 7591) so the MCP endpoint at
+-- /mcp can be added as a custom connector in claude.ai - its connector setup performs
+-- real OAuth discovery/registration, not just "hit this URL with a secret". Single-user
+-- app: the /oauth/authorize step is gated by the same DASHBOARD_PASSWORD as everything
+-- else, not a separate account system. Authorization codes are short-lived and kept
+-- in-memory only (the whole code->token exchange happens within one interactive OAuth
+-- dance, a mid-flight restart just means retrying); issued access tokens are persisted
+-- here since they need to survive redeploys.
+CREATE TABLE IF NOT EXISTS oauth_clients (
+  client_id TEXT PRIMARY KEY,
+  redirect_uris JSONB NOT NULL,
+  client_name TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS oauth_tokens (
+  token TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 async function migrate() {

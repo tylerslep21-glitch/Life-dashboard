@@ -7,14 +7,9 @@ const { handleMcpRequest } = require('./lib/mcp-server');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD;
-const MCP_SECRET = process.env.MCP_SECRET;
 
 if (!DASHBOARD_PASSWORD) {
   console.error('FATAL: DASHBOARD_PASSWORD env var is not set. Refusing to start unprotected.');
-  process.exit(1);
-}
-if (!MCP_SECRET) {
-  console.error('FATAL: MCP_SECRET env var is not set. Refusing to start unprotected.');
   process.exit(1);
 }
 
@@ -27,18 +22,13 @@ app.use(express.json({ limit: '6mb' })); // room for a base64-encoded countdown 
 
 // MCP endpoint for Claude Code cloud routines - lets them push data here without any
 // raw outbound network access, which they structurally don't have (see lib/mcp-server.js
-// for why). Registered as a custom connector at claude.ai/customize/connectors using
-// this exact URL (https://<host>/mcp/<MCP_SECRET>) - the secret path segment IS the
-// credential, so this must run before the session/API auth gate below, and must never
-// be logged or exposed in any user-facing response.
-app.post('/mcp/:secret', (req, res, next) => {
-  const crypto = require('crypto');
-  const provided = Buffer.from(req.params.secret || '');
-  const expected = Buffer.from(MCP_SECRET);
-  const valid = provided.length === expected.length && crypto.timingSafeEqual(provided, expected);
-  if (!valid) return res.status(404).end(); // 404, not 401 - don't confirm the path exists
-  handleMcpRequest(req, res).catch(next);
-});
+// for why). Registered as a custom connector at claude.ai/customize/connectors; that
+// setup flow does real OAuth discovery + dynamic client registration (see routes/oauth.js)
+// rather than a static shared secret, so this - and the OAuth routes below - must run
+// before the session/API auth gate, and are unauthenticated at the Express-route level
+// (auth happens per-request via the Bearer token, checked inside handleMcpRequest).
+app.use(require('./routes/oauth'));
+app.post('/mcp', (req, res, next) => handleMcpRequest(req, res).catch(next));
 
 // Auth endpoints (password login, Touch ID/Face ID registration+sign-in, session check)
 // are deliberately unauthenticated - that's the whole point of a login flow.
