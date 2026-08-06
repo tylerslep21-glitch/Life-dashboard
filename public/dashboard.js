@@ -303,6 +303,23 @@ function mondayOf(date) {
 }
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 
+// Mirrors weekStart() in routes/finance.js exactly (pure UTC, no local-date
+// adjustment) - used wherever we need to bucket an already-stored logged_at
+// into the same week the server would, e.g. deduping /history entries for
+// the bank chart below. mondayOf() above deliberately disagrees with this
+// near the UTC week boundary (that's its whole point, for "what week is
+// today" from the viewer's own clock) - reusing it here caused a corrected
+// entry and the stale one it was meant to replace to land in different
+// chart buckets even though the server correctly treats them as the same
+// week, so the correction never actually overwrote the old point.
+function utcMondayOf(date) {
+  var d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  var day = d.getUTCDay();
+  var diff = (day === 0 ? -6 : 1) - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d;
+}
+
 var currentWeekStart = mondayOf(new Date());
 var earliestWeekStart = null; // fetched once at boot
 var selectedWeekStart = currentWeekStart;
@@ -407,7 +424,7 @@ async function renderBankWidget() {
     // that week's point instead of showing up as an extra blip next to it.
     var latestPerWeek = {};
     history.forEach(function (h) {
-      var wk = isoDate(mondayOf(new Date(h.logged_at)));
+      var wk = isoDate(utcMondayOf(new Date(h.logged_at)));
       if (!latestPerWeek[wk] || new Date(h.logged_at) > new Date(latestPerWeek[wk].logged_at)) {
         latestPerWeek[wk] = h;
       }
