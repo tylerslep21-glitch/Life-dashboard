@@ -1236,6 +1236,75 @@ document.getElementById('signout-btn').addEventListener('click', async function 
 // own setInterval above.
 setInterval(function () { location.reload(); }, 3 * 60 * 1000);
 
+// ---- idle auto-scroll for an always-on desk display ----
+// After a stretch with no interaction, the page creeps down on its own so a
+// wall-mounted display never looks frozen. Hitting the bottom eases back to
+// the top (instead of snapping) so the loop reads as one continuous motion.
+// Only real user input counts as "activity" - deliberately not listening for
+// 'scroll', since our own programmatic scrolling would otherwise keep
+// resetting the idle clock and the auto-scroll would never resume.
+var AUTO_SCROLL_IDLE_MS = 60 * 1000;
+var AUTO_SCROLL_PX_PER_SEC = 40;
+var AUTO_SCROLL_RESET_MS = 1200;
+
+var lastActivityTs = Date.now();
+['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
+  window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
+});
+
+var autoScrollResetting = false;
+var autoScrollLastTs = null;
+
+function autoScrollResetToTop() {
+  autoScrollResetting = true;
+  var startY = window.scrollY;
+  var startTs = null;
+
+  function step(ts) {
+    if (startTs === null) startTs = ts;
+    var t = Math.min(1, (ts - startTs) / AUTO_SCROLL_RESET_MS);
+    var eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease-in-out
+    window.scrollTo(0, startY * (1 - eased));
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      autoScrollResetting = false;
+      autoScrollLastTs = null;
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+function autoScrollStep(ts) {
+  requestAnimationFrame(autoScrollStep);
+  if (autoScrollResetting) return;
+
+  if (Date.now() - lastActivityTs < AUTO_SCROLL_IDLE_MS) {
+    autoScrollLastTs = null;
+    return;
+  }
+
+  var maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+  if (maxScroll <= 0) {
+    autoScrollLastTs = null;
+    return;
+  }
+
+  if (autoScrollLastTs === null) {
+    autoScrollLastTs = ts;
+    return;
+  }
+  var dt = ts - autoScrollLastTs;
+  autoScrollLastTs = ts;
+
+  if (window.scrollY >= maxScroll - 1) {
+    autoScrollResetToTop();
+    return;
+  }
+  window.scrollBy(0, AUTO_SCROLL_PX_PER_SEC * dt / 1000);
+}
+requestAnimationFrame(autoScrollStep);
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
