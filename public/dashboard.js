@@ -1267,56 +1267,73 @@ setInterval(function () { location.reload(); }, 3 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
-// wall-mounted display never looks frozen. Rather than scrolling to the
-// bottom and animating back up (which always reads as a "reset" no matter
-// how gently it's eased), this appends an inert visual duplicate of .shell
-// right below the real one - the same seamless-loop trick startTickerScroll
-// already uses horizontally - and scrolls through it with wraparound modulo
-// math. The wrap happens to land exactly on a content repeat, so it's
-// invisible: the page just appears to keep scrolling down forever.
+// wall-mounted display never looks frozen, looping seamlessly instead of
+// visibly resetting - same idea as the horizontal ticker: an inert visual
+// duplicate of .shell sits right below the real one (with a gap for
+// breathing room at the seam) and the two get moved together with
+// wraparound modulo math, so the wrap always lands on a content repeat.
 //
-// Only real user input counts as "activity" - deliberately not listening for
-// 'scroll', since our own programmatic scrolling would otherwise keep
-// resetting the idle clock and the auto-scroll would never resume. Position
-// is tracked in a local float rather than re-read from window.scrollY every
-// frame - forcing a layout recalculation at 60fps is what caused the
-// original stutter on iPad.
+// Unlike the ticker though, this moves the whole page, so window.scrollTo
+// every frame was tried first and was choppy on iPad even after trimming
+// forced layout reads - native scroll updates are apparently just heavier
+// than compositor work there. So instead: .shell + its clone get wrapped in
+// a plain div, scrollY is frozen once at the top of that wrapper for the
+// whole idle-scroll session, and the *wrapper* gets translateY'd - the same
+// JS-driven-transform technique startTickerScroll uses, which is GPU
+// composited and doesn't touch layout at all. Native scrolling is completely
+// unaffected outside of idle sessions - the wrapper only exists while armed.
 var AUTO_SCROLL_IDLE_MS = 60 * 1000;
 var AUTO_SCROLL_PX_PER_SEC = 42;
+var AUTO_SCROLL_GAP = '3rem'; // breathing room at the seam between repeats
 
 var lastActivityTs = Date.now();
 var shellEl = document.querySelector('.shell');
-var shellClone = null;
+var autoScrollWrapper = null;
+var autoScrollArmed = false;
+var autoScrollPeriod = 0;  // px of translation = exactly one repeat of the content
+var autoScrollY = 0;       // position within [0, autoScrollPeriod)
+var autoScrollLastTs = null;
 
-function removeShellClone() {
-  if (shellClone && shellClone.parentNode) shellClone.parentNode.removeChild(shellClone);
-  shellClone = null;
+function disarmAutoScroll() {
+  if (autoScrollWrapper) {
+    // Hand back to native scrolling at the equivalent visual spot, so
+    // interrupting mid-loop doesn't cause a jump.
+    var targetY = (window.scrollY) + autoScrollY;
+    autoScrollWrapper.parentNode.insertBefore(shellEl, autoScrollWrapper);
+    autoScrollWrapper.parentNode.removeChild(autoScrollWrapper);
+    autoScrollWrapper = null;
+    window.scrollTo(0, targetY);
+  }
   autoScrollArmed = false;
+  autoScrollY = 0;
 }
 
 ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
   window.addEventListener(evt, function () {
     lastActivityTs = Date.now();
-    removeShellClone();
+    disarmAutoScroll();
   }, { passive: true });
 });
 
-function buildShellClone() {
+function armAutoScroll(ts) {
+  autoScrollWrapper = document.createElement('div');
+  shellEl.parentNode.insertBefore(autoScrollWrapper, shellEl);
+  autoScrollWrapper.appendChild(shellEl);
+
   var clone = shellEl.cloneNode(true);
   clone.setAttribute('aria-hidden', 'true');
   clone.removeAttribute('id');
-  clone.style.marginTop = '0'; // must butt directly against the original - no gap - to repeat seamlessly
+  clone.style.marginTop = AUTO_SCROLL_GAP;
   clone.style.pointerEvents = 'none';
   clone.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
-  shellEl.parentNode.insertBefore(clone, shellEl.nextSibling);
-  return clone;
-}
+  autoScrollWrapper.appendChild(clone);
 
-var autoScrollArmed = false;
-var autoScrollBase = 0;   // document Y of the top of the real .shell
-var autoScrollPeriod = 0; // px of scroll = exactly one repeat of the content
-var autoScrollY = 0;      // position within [0, autoScrollPeriod)
-var autoScrollLastTs = null;
+  autoScrollWrapper.style.willChange = 'transform';
+  autoScrollPeriod = clone.getBoundingClientRect().top - shellEl.getBoundingClientRect().top;
+  autoScrollY = 0;
+  autoScrollLastTs = ts;
+  autoScrollArmed = true;
+}
 
 function autoScrollStep(ts) {
   requestAnimationFrame(autoScrollStep);
@@ -1327,21 +1344,15 @@ function autoScrollStep(ts) {
   }
 
   if (!autoScrollArmed) {
-    if (!shellClone) shellClone = buildShellClone();
-    autoScrollBase = shellEl.getBoundingClientRect().top + window.scrollY;
-    autoScrollPeriod = (shellClone.getBoundingClientRect().top + window.scrollY) - autoScrollBase;
-    if (autoScrollPeriod <= 0) return; // page too short to need scrolling
-    var current = window.scrollY - autoScrollBase;
-    autoScrollY = ((current % autoScrollPeriod) + autoScrollPeriod) % autoScrollPeriod;
-    autoScrollArmed = true;
-    autoScrollLastTs = ts;
+    armAutoScroll(ts);
     return;
   }
+  if (autoScrollPeriod <= 0) return; // page too short to need scrolling
 
   var dt = ts - autoScrollLastTs;
   autoScrollLastTs = ts;
   autoScrollY = (autoScrollY + AUTO_SCROLL_PX_PER_SEC * dt / 1000) % autoScrollPeriod;
-  window.scrollTo(0, autoScrollBase + autoScrollY);
+  autoScrollWrapper.style.transform = 'translateY(-' + autoScrollY + 'px)';
 }
 requestAnimationFrame(autoScrollStep);
 
