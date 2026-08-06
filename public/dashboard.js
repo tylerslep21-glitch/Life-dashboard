@@ -1,18 +1,22 @@
-// ---- retro arcade theme toggle ----
+// ---- retro arcade theme picker ----
 // Applied first, before anything else runs, so a saved preference doesn't
-// flash the normal theme for a moment before switching over.
+// flash the normal theme for a moment before switching over. Stored value is
+// a theme name ("tropical", "christmas", ...) or absent/empty for off - see
+// retro.css for how each theme's day/night pair actually works.
 var RETRO_STORAGE_KEY = 'lifeDashboardRetro';
-if (localStorage.getItem(RETRO_STORAGE_KEY) === 'on') {
-  document.documentElement.setAttribute('data-retro', 'on');
+var retroSelect = document.getElementById('retro-theme-select');
+var savedRetroTheme = localStorage.getItem(RETRO_STORAGE_KEY) || '';
+if (savedRetroTheme) {
+  document.documentElement.setAttribute('data-retro', savedRetroTheme);
 }
-document.getElementById('toggle-retro').addEventListener('click', function () {
-  var on = document.documentElement.getAttribute('data-retro') === 'on';
-  if (on) {
+retroSelect.value = savedRetroTheme;
+retroSelect.addEventListener('change', function () {
+  if (retroSelect.value) {
+    document.documentElement.setAttribute('data-retro', retroSelect.value);
+    localStorage.setItem(RETRO_STORAGE_KEY, retroSelect.value);
+  } else {
     document.documentElement.removeAttribute('data-retro');
     localStorage.removeItem(RETRO_STORAGE_KEY);
-  } else {
-    document.documentElement.setAttribute('data-retro', 'on');
-    localStorage.setItem(RETRO_STORAGE_KEY, 'on');
   }
 });
 

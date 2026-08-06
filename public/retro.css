@@ -1,93 +1,46 @@
-/* ---- Retro 8-bit arcade theme (toggle-only, see #toggle-retro in dashboard.js) ----
-   Almost every component in styles.css is built on the --ink/--paper/--accent/etc.
-   custom properties rather than hardcoded colors, so overriding those under
-   :root[data-retro="on"] recolors nearly the whole app for free. What's added on
-   top here is purely structural: a pixel font, square-cornered chunky borders with
-   offset drop shadows instead of soft ones, and a scanline overlay. Specificity is
-   kept at parity with styles.css's own :root[data-theme="..."] blocks
-   ((0,2,0)/(0,3,0)) and this file loads after styles.css, so ties resolve in
-   retro's favor without needing !important except where a bare * reset is fighting
-   many individual border-radius declarations. */
+/* ---- Retro 8-bit arcade themes (picker-driven, see #retro-theme-select in dashboard.js) ----
+   data-retro holds a theme name ("tropical", "christmas", "summer", "winter",
+   "spring", "autumn") or is absent entirely when off. Structural rules below
+   key off :root[data-retro] (matches any value - pixel font, square corners,
+   chunky offset shadows, scanlines) so they apply identically no matter which
+   theme is picked; only the color variables differ per theme, each following
+   the same day/night 4-block pattern styles.css itself uses for
+   --ink/--paper/etc (base assumed-light default, prefers-color-scheme
+   fallback for before real sun times resolve, then explicit data-theme
+   overrides) - keyed off the same data-theme attribute applyThemeFromSunTimes()
+   already sets from real sunrise/sunset.
+
+   --pill-ink is deliberately separate from --paper in every theme: .pill and
+   .bar-fill span need to stay dark regardless of day/night so they read
+   against these themes' bright fills, but --paper itself flips light/dark
+   between day and night, so tying pill text to it would go illegible half
+   the time.
+
+   Specificity note: :root[data-retro] and :root[data-retro="tropical"] etc.
+   have identical specificity (0,2,0) to styles.css's own
+   :root[data-theme="..."] blocks, and this file loads after styles.css, so
+   ties resolve in retro's favor without needing !important except where a
+   bare * reset is fighting many individual border-radius declarations. */
 
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
 
-/* Background/ink swap between a light sky blue by day and a deep blue/purple
-   by night, keyed off the same data-theme attribute applyThemeFromSunTimes()
-   already sets from real sunrise/sunset - same 4-block pattern styles.css
-   itself uses (base assumed-light default, prefers-color-scheme fallback for
-   before sun times resolve, then explicit data-theme overrides for real use).
-   --pill-ink is separate from --paper on purpose: .pill/.bar-fill text below
-   needs to stay dark regardless of day/night, but --paper itself flips
-   light/dark between those two, so reusing it there would go illegible the
-   moment day and pill-text needs disagree on which way "dark" points. */
-:root[data-retro="on"] {
+/* ---- structural (theme-agnostic) ---- */
+
+:root[data-retro] {
   font-size: 118%; /* VT323 reads narrower/smaller than the system sans at the same rem */
-  --ink: #1B2A4A;
-  --ink-soft: #3D5A80;
-  --paper: #7EC8E3;
-  --paper-raised: #EAF7FC;
-  --accent: #FF6F61;
-  --accent-soft: #FF9770;
-  --muted: #C9A875;
-  --border: #2DD4BF;
-  --shadow: rgba(45, 212, 191, 0.4);
-  --skel-base: rgba(27, 42, 74, 0.08);
-  --skel-shine: rgba(27, 42, 74, 0.18);
-  --good: #34D399;
-  --critical: #F4574B;
-  --pill-ink: #0B1B2A;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-retro="on"]:not([data-theme="light"]) {
-    --ink: #FFE9C7;
-    --ink-soft: #F2C6A0;
-    --paper: #170B2E;
-    --paper-raised: #2A1B4D;
-    --skel-base: rgba(255, 233, 199, 0.08);
-    --skel-shine: rgba(255, 233, 199, 0.2);
-  }
-}
-:root[data-retro="on"][data-theme="dark"] {
-  --ink: #FFE9C7;
-  --ink-soft: #F2C6A0;
-  --paper: #170B2E;
-  --paper-raised: #2A1B4D;
-  --skel-base: rgba(255, 233, 199, 0.08);
-  --skel-shine: rgba(255, 233, 199, 0.2);
-}
-:root[data-retro="on"][data-theme="light"] {
-  --ink: #1B2A4A;
-  --ink-soft: #3D5A80;
-  --paper: #7EC8E3;
-  --paper-raised: #EAF7FC;
-  --skel-base: rgba(27, 42, 74, 0.08);
-  --skel-shine: rgba(27, 42, 74, 0.18);
 }
 
-:root[data-retro="on"] .viz-root {
-  --series-asset: #38BDF8;
-  --series-liability: #F4574B;
-  --series-1: #FF8C42;
-  --series-2: #FF6F91;
-  --series-3: #FFD166;
-  --series-4: #34D399;
-  --viz-grid: #0F3B3E;
-  --viz-baseline: #2DD4BF;
-  --good: #34D399;
-  --critical: #F4574B;
-}
-
-:root[data-retro="on"] * {
+:root[data-retro] * {
   font-family: 'VT323', ui-monospace, monospace !important;
   border-radius: 0 !important;
 }
 
-:root[data-retro="on"] body {
-  text-shadow: 0 0 1px rgba(255, 233, 199, 0.25);
+:root[data-retro] body {
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.15);
 }
 
 /* Scanline overlay - purely decorative, never intercepts clicks/taps. */
-:root[data-retro="on"] body::after {
+:root[data-retro] body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -102,9 +55,9 @@
   );
 }
 
-:root[data-retro="on"] h1,
-:root[data-retro="on"] .module-head h2,
-:root[data-retro="on"] .modal h2 {
+:root[data-retro] h1,
+:root[data-retro] .module-head h2,
+:root[data-retro] .modal h2 {
   font-family: 'Press Start 2P', monospace !important;
   font-size: 0.85rem;
   letter-spacing: 0.03em;
@@ -112,39 +65,36 @@
   text-shadow: 1px 1px 0 var(--accent);
 }
 
-:root[data-retro="on"] header.masthead {
+:root[data-retro] header.masthead {
   border-bottom: 4px solid var(--accent);
 }
 
-:root[data-retro="on"] .module {
+:root[data-retro] .module {
   border: 3px solid var(--border);
   box-shadow: 5px 5px 0 var(--shadow);
   background: var(--paper-raised);
 }
 
-:root[data-retro="on"] .btn,
-:root[data-retro="on"] .icon-btn,
-:root[data-retro="on"] .week-arrow,
-:root[data-retro="on"] .add-row-btn {
+:root[data-retro] .btn,
+:root[data-retro] .icon-btn,
+:root[data-retro] .week-arrow,
+:root[data-retro] .add-row-btn {
   border: 2px solid currentColor !important;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.7);
   transition: none !important;
 }
-:root[data-retro="on"] .btn:active,
-:root[data-retro="on"] .icon-btn:active,
-:root[data-retro="on"] .week-arrow:active {
+:root[data-retro] .btn:active,
+:root[data-retro] .icon-btn:active,
+:root[data-retro] .week-arrow:active {
   transform: translate(3px, 3px);
   box-shadow: none;
 }
 
 /* .pill and .bar-fill span both hardcode near-white text in styles.css,
-   which reads poorly against these theme's bright fills (the green "Active"/
-   status pills, the "up" trend badges, the light-blue asset bars) - swap to
-   a fixed dark ink instead, which stays readable against every fill color
-   this theme uses since they're all mid-to-high brightness. Deliberately
-   --pill-ink, not --paper - --paper flips light/dark with day/night, but
-   these fills don't, so text tied to --paper would go illegible half the time. */
-:root[data-retro="on"] .pill {
+   which reads poorly against these themes' bright fills (the green "Active"/
+   status pills, "up" trend badges, the light-blue asset bars). --pill-ink
+   (fixed dark, not day/night dependent - see file header) fixes that. */
+:root[data-retro] .pill {
   font-family: 'Press Start 2P', monospace !important;
   font-size: 0.65rem;
   color: var(--pill-ink) !important;
@@ -152,33 +102,33 @@
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
 
-:root[data-retro="on"] .bar-fill span {
+:root[data-retro] .bar-fill span {
   color: var(--pill-ink) !important;
   font-weight: 700;
 }
 
-:root[data-retro="on"] .ticker-bar {
+:root[data-retro] .ticker-bar {
   border-bottom: 3px solid var(--accent);
 }
 
-:root[data-retro="on"] .modal {
+:root[data-retro] .modal {
   border: 3px solid var(--accent);
   box-shadow: 6px 6px 0 var(--shadow);
 }
 
-:root[data-retro="on"] input,
-:root[data-retro="on"] select,
-:root[data-retro="on"] textarea {
+:root[data-retro] input,
+:root[data-retro] select,
+:root[data-retro] textarea {
   border: 2px solid var(--border) !important;
   background: var(--paper);
   color: var(--ink);
 }
 
-:root[data-retro="on"] .todo-row.checked .todo-text {
+:root[data-retro] .todo-row.checked .todo-text {
   color: var(--good);
 }
 
-:root[data-retro="on"] .countdown-photo:not(.has-photo) {
+:root[data-retro] .countdown-photo:not(.has-photo) {
   background: repeating-linear-gradient(
     45deg,
     var(--paper-raised),
@@ -186,4 +136,283 @@
     var(--border) 8px,
     var(--border) 16px
   );
+}
+
+/* ---- tropical (default) ---- */
+:root[data-retro="tropical"] {
+  --accent: #FF6F61;
+  --accent-soft: #FF9770;
+  --muted: #C9A875;
+  --border: #2DD4BF;
+  --shadow: rgba(45, 212, 191, 0.4);
+  --good: #34D399;
+  --critical: #F4574B;
+  --pill-ink: #0B1B2A;
+  --series-asset: #38BDF8;
+  --series-liability: #F4574B;
+  --series-1: #FF8C42;
+  --series-2: #FF6F91;
+  --series-3: #FFD166;
+  --series-4: #34D399;
+  --viz-grid: #0F3B3E;
+  --viz-baseline: #2DD4BF;
+  --ink: #1B2A4A;
+  --ink-soft: #3D5A80;
+  --paper: #7EC8E3;
+  --paper-raised: #EAF7FC;
+  --skel-base: rgba(27, 42, 74, 0.08);
+  --skel-shine: rgba(27, 42, 74, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="tropical"]:not([data-theme="light"]) {
+    --ink: #FFE9C7; --ink-soft: #F2C6A0; --paper: #170B2E; --paper-raised: #2A1B4D;
+    --skel-base: rgba(255, 233, 199, 0.08); --skel-shine: rgba(255, 233, 199, 0.2);
+  }
+}
+:root[data-retro="tropical"][data-theme="dark"] {
+  --ink: #FFE9C7; --ink-soft: #F2C6A0; --paper: #170B2E; --paper-raised: #2A1B4D;
+  --skel-base: rgba(255, 233, 199, 0.08); --skel-shine: rgba(255, 233, 199, 0.2);
+}
+:root[data-retro="tropical"][data-theme="light"] {
+  --ink: #1B2A4A; --ink-soft: #3D5A80; --paper: #7EC8E3; --paper-raised: #EAF7FC;
+  --skel-base: rgba(27, 42, 74, 0.08); --skel-shine: rgba(27, 42, 74, 0.18);
+}
+/* styles.css's own :root[data-theme="..."] .viz-root blocks are (0,3,0) -
+   these need the same specificity (and to load after, which retro.css does)
+   to actually win instead of silently losing to the base app's chart colors. */
+:root[data-retro="tropical"] .viz-root {
+  --series-asset: #38BDF8; --series-liability: #F4574B;
+  --series-1: #FF8C42; --series-2: #FF6F91; --series-3: #FFD166; --series-4: #34D399;
+  --viz-grid: #0F3B3E; --viz-baseline: #2DD4BF;
+  --good: #34D399; --critical: #F4574B;
+}
+
+/* ---- christmas ---- */
+:root[data-retro="christmas"] {
+  --accent: #D42F2F;
+  --accent-soft: #E85D5D;
+  --muted: #C9A227;
+  --border: #D4AF37;
+  --shadow: rgba(212, 175, 55, 0.4);
+  --good: #2E8B57;
+  --critical: #D42F2F;
+  --pill-ink: #1A0A0A;
+  --series-asset: #A7D8E8;
+  --series-liability: #D42F2F;
+  --series-1: #D42F2F;
+  --series-2: #2E8B57;
+  --series-3: #D4AF37;
+  --series-4: #E8E8E8;
+  --viz-grid: #14301F;
+  --viz-baseline: #D4AF37;
+  --ink: #1B3A2A;
+  --ink-soft: #3D6B52;
+  --paper: #E8F0F5;
+  --paper-raised: #FFFFFF;
+  --skel-base: rgba(27, 58, 42, 0.08);
+  --skel-shine: rgba(27, 58, 42, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="christmas"]:not([data-theme="light"]) {
+    --ink: #F5E6D8; --ink-soft: #D8C4A8; --paper: #0D1F17; --paper-raised: #1C3524;
+    --skel-base: rgba(245, 230, 216, 0.08); --skel-shine: rgba(245, 230, 216, 0.2);
+  }
+}
+:root[data-retro="christmas"][data-theme="dark"] {
+  --ink: #F5E6D8; --ink-soft: #D8C4A8; --paper: #0D1F17; --paper-raised: #1C3524;
+  --skel-base: rgba(245, 230, 216, 0.08); --skel-shine: rgba(245, 230, 216, 0.2);
+}
+:root[data-retro="christmas"][data-theme="light"] {
+  --ink: #1B3A2A; --ink-soft: #3D6B52; --paper: #E8F0F5; --paper-raised: #FFFFFF;
+  --skel-base: rgba(27, 58, 42, 0.08); --skel-shine: rgba(27, 58, 42, 0.18);
+}
+:root[data-retro="christmas"] .viz-root {
+  --series-asset: #A7D8E8; --series-liability: #D42F2F;
+  --series-1: #D42F2F; --series-2: #2E8B57; --series-3: #D4AF37; --series-4: #E8E8E8;
+  --viz-grid: #14301F; --viz-baseline: #D4AF37;
+  --good: #2E8B57; --critical: #D42F2F;
+}
+
+/* ---- summer ---- */
+:root[data-retro="summer"] {
+  --accent: #FF5E7A;
+  --accent-soft: #FF8FA3;
+  --muted: #E8C468;
+  --border: #FFD23F;
+  --shadow: rgba(255, 210, 63, 0.4);
+  --good: #3DDC97;
+  --critical: #FF5E7A;
+  --pill-ink: #14263A;
+  --series-asset: #29B6F6;
+  --series-liability: #FF5E7A;
+  --series-1: #FF8C42;
+  --series-2: #FF5E7A;
+  --series-3: #FFD23F;
+  --series-4: #3DDC97;
+  --viz-grid: #0D3B4E;
+  --viz-baseline: #FFD23F;
+  --ink: #0D3B4E;
+  --ink-soft: #1F5C73;
+  --paper: #7FD4F0;
+  --paper-raised: #FFF8E1;
+  --skel-base: rgba(13, 59, 78, 0.08);
+  --skel-shine: rgba(13, 59, 78, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="summer"]:not([data-theme="light"]) {
+    --ink: #FFEFC2; --ink-soft: #F5D48A; --paper: #1B1A3D; --paper-raised: #2E2A5C;
+    --skel-base: rgba(255, 239, 194, 0.08); --skel-shine: rgba(255, 239, 194, 0.2);
+  }
+}
+:root[data-retro="summer"][data-theme="dark"] {
+  --ink: #FFEFC2; --ink-soft: #F5D48A; --paper: #1B1A3D; --paper-raised: #2E2A5C;
+  --skel-base: rgba(255, 239, 194, 0.08); --skel-shine: rgba(255, 239, 194, 0.2);
+}
+:root[data-retro="summer"][data-theme="light"] {
+  --ink: #0D3B4E; --ink-soft: #1F5C73; --paper: #7FD4F0; --paper-raised: #FFF8E1;
+  --skel-base: rgba(13, 59, 78, 0.08); --skel-shine: rgba(13, 59, 78, 0.18);
+}
+:root[data-retro="summer"] .viz-root {
+  --series-asset: #29B6F6; --series-liability: #FF5E7A;
+  --series-1: #FF8C42; --series-2: #FF5E7A; --series-3: #FFD23F; --series-4: #3DDC97;
+  --viz-grid: #0D3B4E; --viz-baseline: #FFD23F;
+  --good: #3DDC97; --critical: #FF5E7A;
+}
+
+/* ---- winter ---- */
+:root[data-retro="winter"] {
+  --accent: #4FC3E8;
+  --accent-soft: #7FD8F5;
+  --muted: #7A94A3;
+  --border: #C7DDE8;
+  --shadow: rgba(199, 221, 232, 0.4);
+  --good: #4FE0C4;
+  --critical: #E85D75;
+  --pill-ink: #0A1929;
+  --series-asset: #4FC3E8;
+  --series-liability: #E85D75;
+  --series-1: #9FA8DA;
+  --series-2: #4FE0C4;
+  --series-3: #E8D48A;
+  --series-4: #C7DDE8;
+  --viz-grid: #16283D;
+  --viz-baseline: #C7DDE8;
+  --ink: #1E3A4C;
+  --ink-soft: #3E6478;
+  --paper: #DCEFF7;
+  --paper-raised: #FFFFFF;
+  --skel-base: rgba(30, 58, 76, 0.08);
+  --skel-shine: rgba(30, 58, 76, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="winter"]:not([data-theme="light"]) {
+    --ink: #E3F2FB; --ink-soft: #B8DCEE; --paper: #0A1929; --paper-raised: #16283D;
+    --skel-base: rgba(227, 242, 251, 0.08); --skel-shine: rgba(227, 242, 251, 0.2);
+  }
+}
+:root[data-retro="winter"][data-theme="dark"] {
+  --ink: #E3F2FB; --ink-soft: #B8DCEE; --paper: #0A1929; --paper-raised: #16283D;
+  --skel-base: rgba(227, 242, 251, 0.08); --skel-shine: rgba(227, 242, 251, 0.2);
+}
+:root[data-retro="winter"][data-theme="light"] {
+  --ink: #1E3A4C; --ink-soft: #3E6478; --paper: #DCEFF7; --paper-raised: #FFFFFF;
+  --skel-base: rgba(30, 58, 76, 0.08); --skel-shine: rgba(30, 58, 76, 0.18);
+}
+:root[data-retro="winter"] .viz-root {
+  --series-asset: #4FC3E8; --series-liability: #E85D75;
+  --series-1: #9FA8DA; --series-2: #4FE0C4; --series-3: #E8D48A; --series-4: #C7DDE8;
+  --viz-grid: #16283D; --viz-baseline: #C7DDE8;
+  --good: #4FE0C4; --critical: #E85D75;
+}
+
+/* ---- spring ---- */
+:root[data-retro="spring"] {
+  --accent: #FF8FB1;
+  --accent-soft: #FFB3CC;
+  --muted: #A3C9A8;
+  --border: #6FCF97;
+  --shadow: rgba(111, 207, 151, 0.4);
+  --good: #52C77E;
+  --critical: #FF6F91;
+  --pill-ink: #1E1430;
+  --series-asset: #6FC7E8;
+  --series-liability: #FF6F91;
+  --series-1: #FF8FB1;
+  --series-2: #B39DDB;
+  --series-3: #FFD966;
+  --series-4: #52C77E;
+  --viz-grid: #1E3320;
+  --viz-baseline: #6FCF97;
+  --ink: #2E4A2E;
+  --ink-soft: #4E6E4E;
+  --paper: #D9F0FB;
+  --paper-raised: #FFF0F5;
+  --skel-base: rgba(46, 74, 46, 0.08);
+  --skel-shine: rgba(46, 74, 46, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="spring"]:not([data-theme="light"]) {
+    --ink: #FCE4F2; --ink-soft: #F0C4DC; --paper: #241B3D; --paper-raised: #34294F;
+    --skel-base: rgba(252, 228, 242, 0.08); --skel-shine: rgba(252, 228, 242, 0.2);
+  }
+}
+:root[data-retro="spring"][data-theme="dark"] {
+  --ink: #FCE4F2; --ink-soft: #F0C4DC; --paper: #241B3D; --paper-raised: #34294F;
+  --skel-base: rgba(252, 228, 242, 0.08); --skel-shine: rgba(252, 228, 242, 0.2);
+}
+:root[data-retro="spring"][data-theme="light"] {
+  --ink: #2E4A2E; --ink-soft: #4E6E4E; --paper: #D9F0FB; --paper-raised: #FFF0F5;
+  --skel-base: rgba(46, 74, 46, 0.08); --skel-shine: rgba(46, 74, 46, 0.18);
+}
+:root[data-retro="spring"] .viz-root {
+  --series-asset: #6FC7E8; --series-liability: #FF6F91;
+  --series-1: #FF8FB1; --series-2: #B39DDB; --series-3: #FFD966; --series-4: #52C77E;
+  --viz-grid: #1E3320; --viz-baseline: #6FCF97;
+  --good: #52C77E; --critical: #FF6F91;
+}
+
+/* ---- autumn ---- */
+:root[data-retro="autumn"] {
+  --accent: #E8703A;
+  --accent-soft: #F29B5F;
+  --muted: #C9962C;
+  --border: #A8452F;
+  --shadow: rgba(168, 69, 47, 0.4);
+  --good: #6B8E4E;
+  --critical: #C0392B;
+  --pill-ink: #2A1710;
+  --series-asset: #6B8CAE;
+  --series-liability: #C0392B;
+  --series-1: #E8703A;
+  --series-2: #A8452F;
+  --series-3: #C9962C;
+  --series-4: #6B8E4E;
+  --viz-grid: #2E1D14;
+  --viz-baseline: #A8452F;
+  --ink: #4A2A1D;
+  --ink-soft: #6E4530;
+  --paper: #F5D9A8;
+  --paper-raised: #FFF3E0;
+  --skel-base: rgba(74, 42, 29, 0.08);
+  --skel-shine: rgba(74, 42, 29, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-retro="autumn"]:not([data-theme="light"]) {
+    --ink: #F5E1C8; --ink-soft: #E0B888; --paper: #2A1710; --paper-raised: #3D2418;
+    --skel-base: rgba(245, 225, 200, 0.08); --skel-shine: rgba(245, 225, 200, 0.2);
+  }
+}
+:root[data-retro="autumn"][data-theme="dark"] {
+  --ink: #F5E1C8; --ink-soft: #E0B888; --paper: #2A1710; --paper-raised: #3D2418;
+  --skel-base: rgba(245, 225, 200, 0.08); --skel-shine: rgba(245, 225, 200, 0.2);
+}
+:root[data-retro="autumn"][data-theme="light"] {
+  --ink: #4A2A1D; --ink-soft: #6E4530; --paper: #F5D9A8; --paper-raised: #FFF3E0;
+  --skel-base: rgba(74, 42, 29, 0.08); --skel-shine: rgba(74, 42, 29, 0.18);
+}
+:root[data-retro="autumn"] .viz-root {
+  --series-asset: #6B8CAE; --series-liability: #C0392B;
+  --series-1: #E8703A; --series-2: #A8452F; --series-3: #C9962C; --series-4: #6B8E4E;
+  --viz-grid: #2E1D14; --viz-baseline: #A8452F;
+  --good: #6B8E4E; --critical: #C0392B;
 }

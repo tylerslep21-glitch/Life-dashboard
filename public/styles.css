@@ -150,7 +150,8 @@
     text-wrap: balance;
   }
 
-  header.masthead > .icon-btn {
+  header.masthead > .icon-btn,
+  header.masthead > select {
     align-self: center;
   }
 
