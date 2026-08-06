@@ -1259,11 +1259,22 @@ document.getElementById('signout-btn').addEventListener('click', async function 
   window.location.href = '/login';
 });
 
+// ---- shared idle tracking (used by auto-reload below and auto-scroll further down) ----
+var ACTIVITY_IDLE_MS = 60 * 1000;
+var lastActivityTs = Date.now();
+['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
+  window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
+});
+
 // ---- auto-reload for an always-on desk display ----
 // A full page reload (not a soft re-fetch) so every widget - calendar, ticker,
 // finance, everything - genuinely starts fresh, not just the ones with their
-// own setInterval above.
-setInterval(function () { location.reload(); }, 3 * 60 * 1000);
+// own setInterval above. Skipped while someone's actually using it, so an
+// in-progress tap/scroll doesn't get yanked out from under them.
+setInterval(function () {
+  if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) return;
+  location.reload();
+}, 3 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
@@ -1282,11 +1293,9 @@ setInterval(function () { location.reload(); }, 3 * 60 * 1000);
 // JS-driven-transform technique startTickerScroll uses, which is GPU
 // composited and doesn't touch layout at all. Native scrolling is completely
 // unaffected outside of idle sessions - the wrapper only exists while armed.
-var AUTO_SCROLL_IDLE_MS = 60 * 1000;
 var AUTO_SCROLL_PX_PER_SEC = 42;
 var AUTO_SCROLL_GAP = '3rem'; // breathing room at the seam between repeats
 
-var lastActivityTs = Date.now();
 var shellEl = document.querySelector('.shell');
 var autoScrollWrapper = null;
 var autoScrollArmed = false;
@@ -1309,10 +1318,7 @@ function disarmAutoScroll() {
 }
 
 ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
-  window.addEventListener(evt, function () {
-    lastActivityTs = Date.now();
-    disarmAutoScroll();
-  }, { passive: true });
+  window.addEventListener(evt, disarmAutoScroll, { passive: true });
 });
 
 function armAutoScroll(ts) {
@@ -1338,7 +1344,7 @@ function armAutoScroll(ts) {
 function autoScrollStep(ts) {
   requestAnimationFrame(autoScrollStep);
 
-  if (Date.now() - lastActivityTs < AUTO_SCROLL_IDLE_MS) {
+  if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) {
     autoScrollLastTs = null;
     return;
   }
