@@ -1,0 +1,140 @@
+/* ---- Retro 8-bit arcade theme (toggle-only, see #toggle-retro in dashboard.js) ----
+   Almost every component in styles.css is built on the --ink/--paper/--accent/etc.
+   custom properties rather than hardcoded colors, so overriding those under
+   :root[data-retro="on"] recolors nearly the whole app for free. What's added on
+   top here is purely structural: a pixel font, square-cornered chunky borders with
+   offset drop shadows instead of soft ones, and a scanline overlay. Specificity is
+   kept at parity with styles.css's own :root[data-theme="..."] blocks
+   ((0,2,0)/(0,3,0)) and this file loads after styles.css, so ties resolve in
+   retro's favor without needing !important except where a bare * reset is fighting
+   many individual border-radius declarations. */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+:root[data-retro="on"] {
+  font-size: 112%; /* VT323 reads narrower/smaller than the system sans at the same rem */
+  --ink: #00ffcc;
+  --ink-soft: #33d1c6;
+  --paper: #0a0014;
+  --paper-raised: #150022;
+  --accent: #ff2079;
+  --accent-soft: #ff5c9d;
+  --muted: #8a7cff;
+  --border: #ff2079;
+  --shadow: rgba(255, 32, 121, 0.45);
+  --skel-base: rgba(0, 255, 204, 0.08);
+  --skel-shine: rgba(0, 255, 204, 0.2);
+  --good: #39ff14;
+  --critical: #ff4d4d;
+}
+
+:root[data-retro="on"] .viz-root {
+  --series-asset: #00e5ff;
+  --series-liability: #ff2079;
+  --series-1: #ff2079;
+  --series-2: #8a7cff;
+  --series-3: #ffe600;
+  --series-4: #39ff14;
+  --viz-grid: #2a0f3d;
+  --viz-baseline: #ff2079;
+  --good: #39ff14;
+  --critical: #ff4d4d;
+}
+
+:root[data-retro="on"] * {
+  font-family: 'VT323', ui-monospace, monospace !important;
+  border-radius: 0 !important;
+}
+
+:root[data-retro="on"] body {
+  text-shadow: 0 0 1px rgba(0, 255, 204, 0.35);
+}
+
+/* Scanline overlay - purely decorative, never intercepts clicks/taps. */
+:root[data-retro="on"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.18) 0px,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+:root[data-retro="on"] h1,
+:root[data-retro="on"] .module-head h2,
+:root[data-retro="on"] .modal h2 {
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--accent);
+}
+
+:root[data-retro="on"] header.masthead {
+  border-bottom: 4px solid var(--accent);
+}
+
+:root[data-retro="on"] .module {
+  border: 3px solid var(--border);
+  box-shadow: 5px 5px 0 var(--shadow);
+  background: var(--paper-raised);
+}
+
+:root[data-retro="on"] .btn,
+:root[data-retro="on"] .icon-btn,
+:root[data-retro="on"] .week-arrow,
+:root[data-retro="on"] .add-row-btn {
+  border: 2px solid currentColor !important;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.7);
+  transition: none !important;
+}
+:root[data-retro="on"] .btn:active,
+:root[data-retro="on"] .icon-btn:active,
+:root[data-retro="on"] .week-arrow:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+
+:root[data-retro="on"] .pill {
+  font-family: 'Press Start 2P', monospace !important;
+  font-size: 0.55rem;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
+}
+
+:root[data-retro="on"] .ticker-bar {
+  border-bottom: 3px solid var(--accent);
+}
+
+:root[data-retro="on"] .modal {
+  border: 3px solid var(--accent);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+:root[data-retro="on"] input,
+:root[data-retro="on"] select,
+:root[data-retro="on"] textarea {
+  border: 2px solid var(--border) !important;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+:root[data-retro="on"] .todo-row.checked .todo-text {
+  color: var(--good);
+}
+
+:root[data-retro="on"] .countdown-photo:not(.has-photo) {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--paper-raised),
+    var(--paper-raised) 8px,
+    #1f0030 8px,
+    #1f0030 16px
+  );
+}

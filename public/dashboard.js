@@ -1,3 +1,21 @@
+// ---- retro arcade theme toggle ----
+// Applied first, before anything else runs, so a saved preference doesn't
+// flash the normal theme for a moment before switching over.
+var RETRO_STORAGE_KEY = 'lifeDashboardRetro';
+if (localStorage.getItem(RETRO_STORAGE_KEY) === 'on') {
+  document.documentElement.setAttribute('data-retro', 'on');
+}
+document.getElementById('toggle-retro').addEventListener('click', function () {
+  var on = document.documentElement.getAttribute('data-retro') === 'on';
+  if (on) {
+    document.documentElement.removeAttribute('data-retro');
+    localStorage.removeItem(RETRO_STORAGE_KEY);
+  } else {
+    document.documentElement.setAttribute('data-retro', 'on');
+    localStorage.setItem(RETRO_STORAGE_KEY, 'on');
+  }
+});
+
 // ---- clock ----
 function renderClock() {
   var el = document.getElementById('clock');
