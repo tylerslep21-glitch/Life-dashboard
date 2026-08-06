@@ -129,7 +129,11 @@ function renderBars(containerId, rows, opts) {
 
 // ---- data loading ----
 async function getJSON(url) {
-  var res = await fetch(url);
+  // cache: 'no-store' - the API doesn't send its own Cache-Control, so
+  // without this a browser (iOS/PWA especially) can serve a stale cached
+  // response for something like /api/finance/history even after a hard
+  // reload of the page itself pulls fresh JS.
+  var res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(url + ' -> ' + res.status);
   return res.json();
 }
