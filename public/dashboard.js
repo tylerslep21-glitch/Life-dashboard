@@ -205,6 +205,18 @@ async function loadSubscriptions() {
   }
 }
 
+var RENEWAL_WARNING_DAYS = 3;
+
+// Whole calendar days until `renewal` (local midnight to local midnight, not
+// a raw ms/86400000 divide - that would round a renewal later *today* down
+// to 0 correctly but could round one that's actually tomorrow morning down
+// to 0 too, depending on what time it is right now).
+function daysUntil(renewal) {
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var target = new Date(renewal); target.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+
 function renderSubscriptionsList() {
   var subs = currentSubscriptions;
   var list = document.getElementById('subscriptions-list');
@@ -217,9 +229,14 @@ function renderSubscriptionsList() {
     var monthly = s.cadence === 'yearly' ? Number(s.amount) / 12 : Number(s.amount);
     totalMonthly += monthly;
     var renewal = nextRenewal(s.purchase_date, s.cadence);
-    var renewalStr = renewal
-      ? ' &middot; renews ' + renewal.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
-      : '';
+    var renewalStr = '';
+    if (renewal) {
+      var days = daysUntil(renewal);
+      var soon = days <= RENEWAL_WARNING_DAYS;
+      var dayLabel = days <= 0 ? 'today' : days === 1 ? 'tomorrow' : 'in ' + days + ' days';
+      var dateLabel = renewal.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      renewalStr = ' &middot; <span' + (soon ? ' class="renewing-soon"' : '') + '>renews ' + dateLabel + (soon ? ' (' + dayLabel + ')' : '') + '</span>';
+    }
     var label = (s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo') + renewalStr;
     return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
   });

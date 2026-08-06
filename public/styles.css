@@ -345,6 +345,13 @@
     color: var(--ink-soft);
   }
 
+  /* A subscription renewing within the next few days - see renewalSoonDays()
+     in dashboard.js */
+  .renewing-soon {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
   .viz-root {
     color-scheme: light;
     --series-asset: #6C7FD1;
