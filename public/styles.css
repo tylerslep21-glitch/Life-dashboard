@@ -185,6 +185,16 @@
     border-radius: 6px;
     padding: 1.3rem 1.4rem;
     box-shadow: 0 1px 3px var(--shadow);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  /* Cards below the fold start faded/lowered and settle into place as they
+     scroll into view (dashboard.js toggles .revealed via IntersectionObserver)
+     - most noticeable during the idle auto-scroll loop, but applies to manual
+     scrolling too. Anything already in view on load skips this entirely. */
+  .module:not(.revealed) {
+    opacity: 0;
+    transform: translateY(14px);
   }
 
   .module-head {

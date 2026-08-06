@@ -1379,6 +1379,11 @@ function armAutoScroll(ts) {
   clone.style.marginTop = AUTO_SCROLL_GAP;
   clone.style.pointerEvents = 'none';
   clone.querySelectorAll('[id]').forEach(function (el) { el.removeAttribute('id'); });
+  // cloneNode copies whatever .revealed state the real cards had at this
+  // instant - any not yet revealed would otherwise stay invisible in the
+  // clone forever, since nothing ever observes these copies. It's a
+  // decorative repeat, not worth animating - just show it complete.
+  clone.querySelectorAll('.module').forEach(function (el) { el.classList.add('revealed'); });
   autoScrollWrapper.appendChild(clone);
 
   autoScrollWrapper.style.willChange = 'transform';
@@ -1408,6 +1413,28 @@ function autoScrollStep(ts) {
   autoScrollWrapper.style.transform = 'translateY(-' + autoScrollY + 'px)';
 }
 requestAnimationFrame(autoScrollStep);
+
+// ---- subtle reveal-on-scroll for module cards ----
+// Fades/lifts each card in the first time it scrolls into view, then leaves
+// it alone (one-time per element, not re-triggered on later loop cycles).
+// Anything already visible on load is marked revealed immediately so there's
+// no flash-then-fade on first paint.
+var revealObserver = new IntersectionObserver(function (entries) {
+  entries.forEach(function (entry) {
+    if (!entry.isIntersecting) return;
+    entry.target.classList.add('revealed');
+    revealObserver.unobserve(entry.target);
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.module').forEach(function (el) {
+  var rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) {
+    el.classList.add('revealed');
+  } else {
+    revealObserver.observe(el);
+  }
+});
 
 // ---- boot ----
 loadTicker();
