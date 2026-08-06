@@ -25,8 +25,14 @@ router.get('/latest', async (req, res) => {
 
 router.get('/history', async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 52, 200);
+  // Take the most recent `limit` entries, then re-sort ascending - the
+  // dashboard's sparkline expects oldest-to-newest order. A plain
+  // "ORDER BY logged_at ASC LIMIT" would instead return the *oldest* entries
+  // once there are more than `limit` rows total.
   const { rows } = await pool.query(
-    'SELECT * FROM finance_entries ORDER BY logged_at ASC LIMIT $1',
+    `SELECT * FROM (
+       SELECT * FROM finance_entries ORDER BY logged_at DESC LIMIT $1
+     ) recent ORDER BY logged_at ASC`,
     [limit]
   );
   res.json(rows);
