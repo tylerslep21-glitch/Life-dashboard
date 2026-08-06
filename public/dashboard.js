@@ -37,15 +37,44 @@ function fetchSunTimes(lat, lng) {
     .catch(function () { /* leave theme on OS default if this fails */ });
 }
 
+// Cache the granted coordinates so returning visits reuse them instead of
+// prompting for location again every load.
+var GEO_STORAGE_KEY = 'lifeDashboardGeo';
+
+function getStoredGeo() {
+  try {
+    var raw = localStorage.getItem(GEO_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function storeGeo(lat, lng) {
+  try {
+    localStorage.setItem(GEO_STORAGE_KEY, JSON.stringify({ lat: lat, lng: lng }));
+  } catch (err) { /* localStorage unavailable - just skip caching */ }
+}
+
+function watchSunTimes(lat, lng) {
+  fetchSunTimes(lat, lng);
+  // Re-check every 10 min so an open page actually flips at the real moment,
+  // and re-fetch once the calendar date rolls over to a new day's times.
+  setInterval(function () { fetchSunTimes(lat, lng); }, 10 * 60 * 1000);
+}
+
 function initSunTheme() {
+  var stored = getStoredGeo();
+  if (stored) {
+    watchSunTimes(stored.lat, stored.lng);
+    return;
+  }
   if (!navigator.geolocation) return; // falls back to prefers-color-scheme media query
   navigator.geolocation.getCurrentPosition(
     function (pos) {
       var lat = pos.coords.latitude, lng = pos.coords.longitude;
-      fetchSunTimes(lat, lng);
-      // Re-check every 10 min so an open page actually flips at the real moment,
-      // and re-fetch once the calendar date rolls over to a new day's times.
-      setInterval(function () { fetchSunTimes(lat, lng); }, 10 * 60 * 1000);
+      storeGeo(lat, lng);
+      watchSunTimes(lat, lng);
     },
     function () { /* permission denied or unavailable - leave theme on OS default */ }
   );
