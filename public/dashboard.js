@@ -30,11 +30,86 @@ retroToggle.addEventListener('click', function () {
   } else {
     document.documentElement.removeAttribute('data-retro');
   }
+  renderChristmasLights();
 });
 
 retroSelect.addEventListener('change', function () {
   document.documentElement.setAttribute('data-season', retroSelect.value);
   localStorage.setItem(RETRO_THEME_KEY, retroSelect.value);
+  renderChristmasLights();
+});
+
+// A CSS background-image can't do this: it either stretches to fill the
+// card (bulb spacing scales with card width - not "consistent") or tiles at
+// a fixed size (consistent spacing, but a bulb almost never lands exactly
+// on the far edge for an arbitrary card width). Measuring each card's real
+// width and computing bulb count/spacing in JS is the only way to get both
+// - a bulb at both corners, spaced close to a fixed target rather than
+// stretched or squeezed to fit.
+var LIGHTS_TARGET_SPACING = 65;
+var lightsGradientCounter = 0;
+
+function buildLightsSvg(width, colors) {
+  var n = Math.max(2, Math.round(width / LIGHTS_TARGET_SPACING) + 1);
+  var spacing = width / (n - 1);
+  var xs = [];
+  for (var i = 0; i < n; i++) xs.push(i * spacing);
+
+  var path = 'M' + xs[0].toFixed(1) + ',20';
+  for (i = 0; i < n - 1; i++) {
+    var mid = (xs[i] + xs[i + 1]) / 2;
+    path += ' Q' + mid.toFixed(1) + ',6 ' + xs[i + 1].toFixed(1) + ',20';
+  }
+
+  var gradId = 'lights-glow-' + (lightsGradientCounter++);
+  var stops = colors.glowStops.map(function (s) {
+    return '<stop offset="' + s[0] + '%" stop-color="' + colors.glow + '" stop-opacity="' + s[1] + '"/>';
+  }).join('');
+  var bulbs = xs.map(function (x) {
+    return '<g transform="translate(' + x.toFixed(1) + ',20)">' +
+      '<circle r="' + colors.glowRadius + '" fill="url(#' + gradId + ')"/>' +
+      '<rect x="-1.5" y="-9" width="3" height="3" fill="' + colors.cap + '"/>' +
+      '<ellipse cy="-2" rx="3.6" ry="4.4" fill="' + colors.bulb + '"/>' +
+    '</g>';
+  }).join('');
+
+  return '<svg class="christmas-lights" xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="26" ' +
+    'viewBox="0 0 ' + width.toFixed(1) + ' 26" style="position:absolute;top:-20px;left:0;pointer-events:none;">' +
+    '<defs><radialGradient id="' + gradId + '" cx="50%" cy="50%" r="50%">' + stops + '</radialGradient></defs>' +
+    '<path d="' + path + '" stroke="' + colors.wire + '" stroke-width="1.6" fill="none"/>' +
+    bulbs +
+  '</svg>';
+}
+
+var LIGHTS_COLORS_DAY = {
+  wire: '#3D2818', glow: '#FFF3D6', glowStops: [[0, 0.85], [45, 0.3], [100, 0]],
+  glowRadius: 11, bulb: '#FFF3D6', cap: '#6B5D4F',
+};
+var LIGHTS_COLORS_NIGHT = {
+  wire: '#8A7A5A', glow: '#FFF8E8', glowStops: [[0, 1.0], [50, 0.5], [100, 0]],
+  glowRadius: 14, bulb: '#FFFAE8', cap: '#C9B896',
+};
+
+function renderChristmasLights() {
+  document.querySelectorAll('.christmas-lights').forEach(function (el) { el.remove(); });
+  var active = document.documentElement.hasAttribute('data-retro') &&
+    document.documentElement.getAttribute('data-season') === 'christmas';
+  if (!active) return;
+
+  var colors = document.documentElement.getAttribute('data-theme') === 'dark' ? LIGHTS_COLORS_NIGHT : LIGHTS_COLORS_DAY;
+  document.querySelectorAll('.module').forEach(function (module) {
+    var width = module.getBoundingClientRect().width;
+    if (!width) return;
+    module.style.position = 'relative';
+    module.style.overflow = 'visible';
+    module.insertAdjacentHTML('afterbegin', buildLightsSvg(width, colors));
+  });
+}
+
+var lightsResizeTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(lightsResizeTimer);
+  lightsResizeTimer = setTimeout(renderChristmasLights, 200);
 });
 
 // ---- clock ----
@@ -1547,6 +1622,8 @@ document.querySelectorAll('.module').forEach(function (el) {
     revealObserver.observe(el);
   }
 });
+
+renderChristmasLights();
 
 // ---- boot ----
 loadTicker();

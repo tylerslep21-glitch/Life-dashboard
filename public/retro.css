@@ -507,38 +507,3 @@
 :root[data-retro][data-season="autumn"][data-theme="light"] body {
   background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20width='140'%20height='140'%3E%0A%3Cg%20transform='translate%2818.5,24.5%29%20scale%280.75%29'%20opacity='0.4'%3E%3Cpath%20fill=%22%23F4900C%22%20d=%22M32.664%208.519C29.364%205.134%2023.42%204.75%2018%204.75S6.636%205.134%203.336%208.519C.582%2011.344%200%2015.751%200%2019.791c0%205.263%201.982%2011.311%206.357%2014.244C9.364%2036.051%2013.95%2035.871%2018%2035.871s8.636.18%2011.643-1.836C34.018%2031.101%2036%2025.054%2036%2019.791c0-4.04-.582-8.447-3.336-11.272z%22/%3E%3Cpath%20fill=%22%233F7123%22%20d=%22M20.783%205.444c.069.42-.222.764-.647.764h-4.451c-.426%200-.717-.344-.647-.764l.745-4.472c.07-.421.476-.764.902-.764h2.451c.426%200%20.832.344.901.764l.746%204.472z%22/%3E%3Cpath%20fill=%22%23642116%22%20d=%22M20.654%2021.159l-1.598-2.596c-.291-.542-.673-.813-1.057-.817-.383.004-.766.275-1.057.817l-1.598%202.596c-.587%201.093.873%201.716%202.654%201.716s3.243-.624%202.656-1.716zm9.508%203.192c-.045-.075-.126-.121-.214-.121h-.841c-.068%200-.134.028-.181.077l-2.231%202.334-2.698-2.169c-.051-.041-.117-.058-.185-.053-.066.007-.127.041-.168.094l-2.408%203.062-3.054-3.266c-.013-.014-.033-.017-.048-.028-.015-.01-.025-.027-.043-.034-.006-.002-.013%200-.019-.002-.024-.007-.047-.005-.072-.005-.025%200-.048-.002-.072.006-.006.002-.013-.001-.02.002-.018.007-.027.024-.043.034-.016.01-.035.013-.048.027l-3.053%203.266-2.409-3.062c-.041-.053-.102-.087-.168-.094-.066-.006-.133.012-.185.053l-2.698%202.169-2.23-2.334c-.047-.049-.112-.077-.181-.077h-.841c-.087%200-.169.046-.214.121-.045.075-.048.168-.007.245l2.754%205.219c.034.064.093.11.164.127s.145.002.203-.04l2.034-1.458%203.004%203.633c.043.053.106.085.174.09l.019.001c.062%200%20.121-.022.167-.063L18%2028.836l3.65%203.268c.046.041.105.063.167.063l.019-.001c.068-.005.131-.037.174-.09l3.005-3.633%202.034%201.458c.06.043.133.06.203.04.07-.017.13-.062.163-.126l2.755-5.219c.04-.077.038-.17-.008-.245zm-2.186-8.93c.129%202.127-.784%203.806-3.205%203.953-2.42.146-3.529-1.411-3.658-3.537s1.232-5.12%203.127-5.234c1.896-.116%203.608%202.691%203.736%204.818zm-19.952%200c-.129%202.127.784%203.806%203.205%203.953%202.42.146%203.529-1.411%203.658-3.537s-1.232-5.12-3.127-5.234-3.608%202.691-3.736%204.818z%22/%3E%3C/g%3E%0A%3Cg%20transform='translate%2888.5,86.5%29%20scale%280.75%29'%20opacity='0.4'%3E%3Cpath%20fill=%22%23DD2E44%22%20d=%22M36%2020.917c0-.688-2.895-.5-3.125-1s3.208-4.584%202.708-5.5-5.086%201.167-5.375.708c-.288-.458.292-3.5-.208-3.875s-5.25%204.916-5.917%204.292c-.666-.625%201.542-10.5%201.086-10.698-.456-.198-3.419%201.365-3.793%201.282C21.002%206.042%2018.682%200%2018%200s-3.002%206.042-3.376%206.125c-.374.083-3.337-1.48-3.793-1.282-.456.198%201.752%2010.073%201.085%2010.698C11.25%2016.166%206.5%2010.875%206%2011.25s.08%203.417-.208%203.875c-.289.458-4.875-1.625-5.375-.708s2.939%205%202.708%205.5-3.125.312-3.125%201%208.438%205.235%209%205.771c.562.535-2.914%202.802-2.417%203.229.576.496%203.839-.83%2010.417-.957V35c0%20.553.448%201%201%201%20.553%200%201-.447%201-1v-6.04c6.577.127%209.841%201.453%2010.417.957.496-.428-2.979-2.694-2.417-3.229.562-.536%209-5.084%209-5.771z%22/%3E%3C/g%3E%0A%3C/svg%3E");
 }
-
-/* Christmas string lights - retro only, draped along the top of each module
-   card. See the BULB_DAY/BULB_NIGHT and wire.json comments in build_css.py
-   for how the corner-anchoring and bulb-roundness are achieved. Hangs from
-   top:-14px, into the .modules grid's own gap (1.1rem ~= 17.6px), so it
-   never overlaps the card above it. */
-:root[data-retro][data-season="christmas"] .module {
-  position: relative;
-  overflow: visible;
-}
-:root[data-retro][data-season="christmas"] .module::before {
-  content: '';
-  position: absolute;
-  top: -14px;
-  left: 0;
-  right: 0;
-  height: 22px;
-  background-image: radial-gradient(circle at 50% 73%, #FFF3D6 0 3px, rgba(255,243,214,0.4) 3px 7px, transparent 7px), url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20viewBox='0%200%20100%2022'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,4%20Q10,16%2020,4%20Q30,16%2040,4%20Q50,16%2060,4%20Q70,16%2080,4%20Q90,16%20100,4'%20stroke='%233D2818'%20stroke-width='1.4'%20fill='none'%20vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-  background-size: 20% 22px, 100% 22px;
-  background-position: 0 0, 0 0;
-  background-repeat: repeat-x, no-repeat;
-  pointer-events: none;
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-retro][data-season="christmas"]:not([data-theme="light"]) .module::before {
-    background-image: radial-gradient(circle at 50% 73%, #FFF8E8 0 3px, rgba(255,248,232,0.65) 3px 10px, transparent 10px), url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20viewBox='0%200%20100%2022'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,4%20Q10,16%2020,4%20Q30,16%2040,4%20Q50,16%2060,4%20Q70,16%2080,4%20Q90,16%20100,4'%20stroke='%238A7A5A'%20stroke-width='1.4'%20fill='none'%20vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-  }
-}
-:root[data-retro][data-season="christmas"][data-theme="dark"] .module::before {
-  background-image: radial-gradient(circle at 50% 73%, #FFF8E8 0 3px, rgba(255,248,232,0.65) 3px 10px, transparent 10px), url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20viewBox='0%200%20100%2022'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,4%20Q10,16%2020,4%20Q30,16%2040,4%20Q50,16%2060,4%20Q70,16%2080,4%20Q90,16%20100,4'%20stroke='%238A7A5A'%20stroke-width='1.4'%20fill='none'%20vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-}
-:root[data-retro][data-season="christmas"][data-theme="light"] .module::before {
-  background-image: radial-gradient(circle at 50% 73%, #FFF3D6 0 3px, rgba(255,243,214,0.4) 3px 7px, transparent 7px), url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20viewBox='0%200%20100%2022'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0,4%20Q10,16%2020,4%20Q30,16%2040,4%20Q50,16%2060,4%20Q70,16%2080,4%20Q90,16%20100,4'%20stroke='%233D2818'%20stroke-width='1.4'%20fill='none'%20vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-}
-
