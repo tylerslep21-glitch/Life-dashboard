@@ -55,10 +55,15 @@ function buildLightsSvg(width, colors) {
   var xs = [];
   for (var i = 0; i < n; i++) xs.push(i * spacing);
 
-  var path = 'M' + xs[0].toFixed(1) + ',20';
+  // The wire is attached (high, y=8) exactly at each bulb's x-position, and
+  // sags DOWN (y=16) at the midpoints between them - a real hung cable, not
+  // an upward arc. Each bulb then drops from that attachment point via a
+  // short visible stem, so it clearly hangs below the wire rather than
+  // sitting on it.
+  var path = 'M' + xs[0].toFixed(1) + ',8';
   for (i = 0; i < n - 1; i++) {
     var mid = (xs[i] + xs[i + 1]) / 2;
-    path += ' Q' + mid.toFixed(1) + ',6 ' + xs[i + 1].toFixed(1) + ',20';
+    path += ' Q' + mid.toFixed(1) + ',16 ' + xs[i + 1].toFixed(1) + ',8';
   }
 
   var gradId = 'lights-glow-' + (lightsGradientCounter++);
@@ -66,10 +71,11 @@ function buildLightsSvg(width, colors) {
     return '<stop offset="' + s[0] + '%" stop-color="' + colors.glow + '" stop-opacity="' + s[1] + '"/>';
   }).join('');
   var bulbs = xs.map(function (x) {
-    return '<g transform="translate(' + x.toFixed(1) + ',20)">' +
-      '<circle r="' + colors.glowRadius + '" fill="url(#' + gradId + ')"/>' +
-      '<rect x="-1.5" y="-9" width="3" height="3" fill="' + colors.cap + '"/>' +
-      '<ellipse cy="-2" rx="3.6" ry="4.4" fill="' + colors.bulb + '"/>' +
+    return '<g transform="translate(' + x.toFixed(1) + ',0)">' +
+      '<line x1="0" y1="8" x2="0" y2="14" stroke="' + colors.wire + '" stroke-width="1.2"/>' +
+      '<circle cy="21" r="' + colors.glowRadius + '" fill="url(#' + gradId + ')"/>' +
+      '<rect x="-1.5" y="14" width="3" height="3" fill="' + colors.cap + '"/>' +
+      '<ellipse cy="20" rx="3.6" ry="4.4" fill="' + colors.bulb + '"/>' +
     '</g>';
   }).join('');
 
