@@ -17,6 +17,15 @@ const LEAGUES = {
 };
 const MAX_FAVORITES = 20;
 
+// Top-level ESPN "group" id for D1 (basketball) / FBS (football) within
+// each college league - confirmed live against
+// .../scoreboard/conferences (each conference entry's parentGroupId points
+// back to this same id). Passing ?groups=<this> to the scoreboard endpoint
+// is what keeps FCS/D2/D3 opponents out of the college widgets, per-league
+// conference filtering below just swaps in a conference's own groupId
+// instead.
+const COLLEGE_D1_GROUP = { ncaaf: '80', ncaambb: '50', ncaawbb: '50' };
+
 router.get('/leagues', (req, res) => {
   res.json(Object.entries(LEAGUES).map(([key, l]) => ({ key, label: l.label })));
 });
@@ -75,6 +84,26 @@ function describeStatus(status) {
   return { state: 'scheduled', detail };
 }
 
+// ESPN's schedule/scoreboard competitor.score is an object
+// ({value, displayValue}), not a plain string/number - stringifying it
+// directly (as this used to) is where the "[object Object]" scores came
+// from.
+function scoreValue(score) {
+  if (score == null) return null;
+  if (typeof score === 'object') return score.displayValue != null ? score.displayValue : score.value;
+  return score;
+}
+
+function mapTeam(competitor) {
+  return {
+    id: competitor.team.id,
+    name: competitor.team.shortDisplayName || competitor.team.displayName,
+    logo: (competitor.team.logos && competitor.team.logos[0] && competitor.team.logos[0].href) || null,
+    score: scoreValue(competitor.score),
+    winner: !!competitor.winner,
+  };
+}
+
 function mapEvent(event) {
   const comp = event.competitions[0];
   const home = comp.competitors.find((c) => c.homeAway === 'home');
@@ -83,8 +112,8 @@ function mapEvent(event) {
     id: event.id,
     date: event.date,
     status: describeStatus(comp.status),
-    home: { id: home.team.id, name: home.team.shortDisplayName || home.team.displayName, score: home.score, winner: !!home.winner },
-    away: { id: away.team.id, name: away.team.shortDisplayName || away.team.displayName, score: away.score, winner: !!away.winner },
+    home: mapTeam(home),
+    away: mapTeam(away),
   };
 }
 
@@ -145,6 +174,83 @@ router.get('/standings/:league', async (req, res) => {
     res.json({ groups: (data.children || []).map((g) => ({ name: g.name, teams: flatten(g) })) });
   } catch (err) {
     res.status(502).json({ error: 'Could not fetch standings right now' });
+  }
+});
+
+// Conference list for a college league, used to populate each college
+// widget's filter dropdown - only the conferences directly under the D1/FBS
+// group (excludes the "FBS"/"NCAA Division I" umbrella entry itself, which
+// is what "all D1/FBS" already means with no filter).
+router.get('/:league/conferences', async (req, res) => {
+  const leagueKey = req.params.league;
+  const d1Group = COLLEGE_D1_GROUP[leagueKey];
+  const league = LEAGUES[leagueKey];
+  if (!league || !d1Group) return res.status(400).json({ error: 'Not a college league' });
+  try {
+    const espnRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${league.sport}/${league.league}/scoreboard/conferences`);
+    if (!espnRes.ok) throw new Error(`ESPN returned ${espnRes.status}`);
+    const data = await espnRes.json();
+    const conferences = (data.conferences || [])
+      .filter((c) => c.parentGroupId === d1Group)
+      .map((c) => ({ id: c.groupId, name: c.shortName || c.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json(conferences);
+  } catch (err) {
+    res.status(502).json({ error: 'Could not fetch conferences right now' });
+  }
+});
+
+// League-wide upcoming + recent games (not filtered to any user's favorite
+// teams - this backs the 7 per-league widgets, distinct from /scores which
+// is favorites-only). `filter` query param, college leagues only:
+// 'top25' (nationally ranked teams only), a conference groupId (from
+// /:league/conferences above), or omitted/'all' for every D1/FBS team.
+router.get('/:league/scoreboard', async (req, res) => {
+  const leagueKey = req.params.league;
+  const league = LEAGUES[leagueKey];
+  if (!league) return res.status(400).json({ error: 'Unknown league' });
+  const filter = req.query.filter || 'all';
+  const d1Group = COLLEGE_D1_GROUP[leagueKey];
+
+  try {
+    const today = new Date();
+    const start = new Date(today); start.setDate(start.getDate() - 4);
+    const end = new Date(today); end.setDate(end.getDate() + 10);
+    const fmt = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
+    let url = `https://site.api.espn.com/apis/site/v2/sports/${league.sport}/${league.league}/scoreboard?dates=${fmt(start)}-${fmt(end)}&limit=300`;
+
+    let rankedIds = null;
+    if (d1Group) {
+      if (filter === 'top25') {
+        const rankRes = await fetch(`https://site.api.espn.com/apis/site/v2/sports/${league.sport}/${league.league}/rankings`);
+        if (rankRes.ok) {
+          const rankData = await rankRes.json();
+          const polls = rankData.rankings || [];
+          const poll = polls.find((p) => p.name === 'AP Top 25') || polls[0];
+          rankedIds = new Set(((poll && poll.ranks) || []).map((r) => r.team.id));
+        }
+        url += `&groups=${d1Group}`;
+      } else if (filter && filter !== 'all') {
+        url += `&groups=${filter}`;
+      } else {
+        url += `&groups=${d1Group}`;
+      }
+    }
+
+    const espnRes = await fetch(url);
+    if (!espnRes.ok) throw new Error(`ESPN returned ${espnRes.status}`);
+    const data = await espnRes.json();
+    let events = (data.events || []).map(mapEvent);
+    if (rankedIds && rankedIds.size) {
+      events = events.filter((e) => rankedIds.has(e.home.id) || rankedIds.has(e.away.id));
+    }
+    events.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const now = Date.now();
+    const upcoming = events.filter((e) => e.status.state !== 'final' && new Date(e.date).getTime() >= now).slice(0, 25);
+    const recent = events.filter((e) => e.status.state === 'final').slice(-15).reverse();
+    res.json({ upcoming, recent });
+  } catch (err) {
+    res.status(502).json({ error: 'Could not fetch scoreboard right now' });
   }
 });
 

@@ -200,11 +200,29 @@
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
+    /* Stops iOS/iPadOS from hijacking the gesture as a page scroll before
+       our own pointer handlers get a clean shot at it - without this the
+       browser and our drag code fight over the same touch, which is what
+       "shaky" dragging on iPad actually was. */
+    touch-action: none;
+    /* Widgets that get pushed out of the way live during a drag/resize (see
+       previewMove()/applyGridLayout() in dashboard.js) animate into their
+       new cell instead of jumping - this is the "snap into place" feel.
+       The actively dragged widget itself opts out below (it tracks the
+       finger via transform, not grid-column/row, so it must not animate). */
+    transition: grid-column 0.18s ease, grid-row 0.18s ease;
   }
   body.dashboard-edit-mode .module.widget-dragging {
     opacity: 0.55;
     cursor: grabbing;
     z-index: 40;
+    transition: none;
+  }
+  body.dashboard-edit-mode .module.widget-locked {
+    cursor: default;
+    outline-style: solid;
+    outline-color: var(--muted);
+    opacity: 0.85;
   }
   .widget-remove-btn {
     position: absolute;
@@ -222,25 +240,44 @@
     cursor: pointer;
     z-index: 6;
     padding: 0;
+    touch-action: none;
   }
   body.dashboard-edit-mode .module .widget-remove-btn { display: flex; }
   .widget-resize-handle {
     position: absolute;
-    bottom: 0.3rem;
-    right: 0.3rem;
-    width: 1.1rem;
-    height: 1.1rem;
+    bottom: 0.15rem;
+    right: 0.15rem;
+    width: 2.4rem;
+    height: 2.4rem;
     cursor: nwse-resize;
     display: none;
     touch-action: none;
     color: var(--accent);
-    opacity: 0.7;
+    opacity: 0.9;
+    background: var(--paper-raised, var(--paper));
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    z-index: 7;
   }
-  body.dashboard-edit-mode .module .widget-resize-handle { display: block; }
+  .widget-resize-handle .icon { width: 1.2rem; height: 1.2rem; }
+  body.dashboard-edit-mode .module .widget-resize-handle { display: flex; }
+  body.dashboard-edit-mode .module.widget-locked .widget-resize-handle,
+  body.dashboard-edit-mode .module.widget-locked .widget-remove-btn { display: none; }
   /* Every module needs to be a positioning context for the remove button/
      resize handle above, regardless of edit mode (added unconditionally
      rather than only in edit mode, so it doesn't shift layout on toggle). */
   .module { position: relative; }
+  /* Locked "date picker" widget always sits at the boundary between the
+     free-arrange non-financial group above it and the financial group
+     below - the border stands in for the "spacer" the finance widgets used
+     to get from the old #finance-divider element. */
+  .module[data-widget-id="week-nav"] {
+    border-top: 3px dashed var(--border);
+    padding-top: 1.5rem;
+    margin-top: 0.6rem;
+  }
   .span-2 { grid-column: span 2; }
   .span-3 { grid-column: span 3; }
   @media (max-width: 900px) {
@@ -1298,4 +1335,48 @@
   color: var(--muted);
   white-space: pre-line;
 }
+
+/* ---- Per-league widgets (NFL/MLB/NHL/NBA/NCAAF/NCAAMBB/NCAAWBB) - see
+   initLeagueWidgets() in dashboard.js ---- */
+.league-filter-select {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--ink);
+  max-width: 9rem;
+}
+.league-widget-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0.5rem 0 0.15rem;
+}
+.league-widget-section-label:first-child { margin-top: 0; }
+.league-game-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.league-game-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  padding: 0.15rem 0;
+}
+.league-game-teams {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.league-game-teams img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
+.league-game-score { flex-shrink: 0; color: var(--muted); }
 

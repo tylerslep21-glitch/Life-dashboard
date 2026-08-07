@@ -2289,6 +2289,13 @@ var WIDGET_REGISTRY = [
   { id: 'slideshow', name: 'Photos', preview: '(rotating photo slideshow)' },
   { id: 'weather', name: 'Weather', preview: '72°F · Partly cloudy' },
   { id: 'sports', name: 'Sports', preview: 'Cowboys @ Eagles · Sun 1:00 PM' },
+  { id: 'league-nfl', name: 'NFL', preview: 'Cowboys @ Eagles · Sun 1:00 PM' },
+  { id: 'league-mlb', name: 'MLB', preview: 'Yankees @ Red Sox · 7:05 PM' },
+  { id: 'league-nhl', name: 'NHL', preview: 'Rangers @ Bruins · 7:00 PM' },
+  { id: 'league-nba', name: 'NBA', preview: 'Lakers @ Celtics · 7:30 PM' },
+  { id: 'league-ncaaf', name: 'NCAA Football', preview: 'Ohio State @ Michigan · Sat noon' },
+  { id: 'league-ncaambb', name: "NCAA Men's Basketball", preview: 'Duke @ UNC · 7:00 PM' },
+  { id: 'league-ncaawbb', name: "NCAA Women's Basketball", preview: 'UConn @ Iowa · 7:00 PM' },
   { id: 'moon-phase', name: 'Moon phase', preview: 'Waxing gibbous · 78%' },
   { id: 'notes', name: 'Notes', preview: '(freeform scratchpad)' },
   { id: 'week-nav', name: 'Week navigator', preview: 'Week of Aug 4' },
@@ -2306,6 +2313,23 @@ var isAdminUser = false; // set once /api/me resolves - see loadWidgetLayout()
 var editModeOn = false;
 var GRID_COLS = 3; // matches .modules' desktop grid-template-columns
 var MAX_SPAN = 3;  // "full screen" cap from the 3-column grid's own width
+
+// Financial widgets stay grouped together, always below the locked
+// week-nav ("date picker") widget, and never interleave with everything
+// else - the constraint the old list-based layout enforced via two
+// #calendar-divider/#finance-divider elements, carried forward into the
+// freeform grid instead of dropped. week-nav itself is locked separately
+// (see LOCKED_WIDGET_ID below), not part of either group.
+var FINANCIAL_WIDGET_IDS = {
+  'finance-stats': true,
+  'net-worth-breakdown': true,
+  'spending-by-category': true,
+  bank: true,
+  'robinhood-agentic': true,
+  'robinhood-individual': true,
+  'status-row': true,
+};
+var LOCKED_WIDGET_ID = 'week-nav';
 
 // NULL (no saved layout at all - true for every account that existed before
 // per-widget layout did) means "all widgets, enabled, auto-arranged" for
@@ -2375,30 +2399,86 @@ function packMissingPositions(items) {
   });
 }
 
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// General de-overlap pass: sorts widgets top-left-first and pushes any
+// widget down that overlaps an earlier (already-settled) one. Not true
+// bin-packing, but it's exactly what's needed for the common case this was
+// missing before - growing a widget via resize used to just draw on top of
+// whatever was already there instead of moving it out of the way.
+function resolveCollisions(layout) {
+  var sorted = layout.slice().sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); });
+  for (var i = 0; i < sorted.length; i++) {
+    for (var j = 0; j < i; j++) {
+      if (rectsOverlap(sorted[i], sorted[j])) {
+        sorted[i].y = sorted[j].y + sorted[j].h;
+      }
+    }
+  }
+  return sorted;
+}
+
+// Keeps the "date picker" (week-nav) pinned full-width directly beneath
+// whatever non-financial content is above it, and keeps every financial
+// widget below that line - the financial/non-financial no-mixing rule from
+// the old list layout, adapted to explicit grid coordinates. Skipped
+// entirely if the user has removed week-nav from their dashboard.
+function pinDatePickerAndFinance(layout) {
+  var weekNav = layout.find(function (w) { return w.id === LOCKED_WIDGET_ID; });
+  if (!weekNav) return layout;
+  var nonFinancial = layout.filter(function (w) { return w.id !== LOCKED_WIDGET_ID && !FINANCIAL_WIDGET_IDS[w.id]; });
+  var financial = layout.filter(function (w) { return FINANCIAL_WIDGET_IDS[w.id]; });
+
+  var maxNonFinancialBottom = 0;
+  nonFinancial.forEach(function (w) { maxNonFinancialBottom = Math.max(maxNonFinancialBottom, w.y + w.h); });
+
+  weekNav.x = 0;
+  weekNav.w = GRID_COLS;
+  weekNav.h = 1;
+  weekNav.y = maxNonFinancialBottom;
+
+  var minFinancialY = weekNav.y + weekNav.h;
+  financial.forEach(function (w) { if (w.y < minFinancialY) w.y = minFinancialY; });
+
+  return layout;
+}
+
+function normalizeLayout(layout) {
+  return pinDatePickerAndFinance(resolveCollisions(layout));
+}
+
 // Positions every widget on the live grid via explicit grid-column/grid-row
 // (not CSS order - a freeform 2D grid needs real coordinates), hides
 // anything disabled or genuinely absent from the layout, and returns the
 // packed layout so callers persist/track the canonical positions rather
-// than whatever partial data triggered this call.
-function applyGridLayout(layout) {
-  var packed = packMissingPositions(layout);
+// than whatever partial data triggered this call. `excludeId`, if given,
+// skips writing that one widget's grid-column/row - used while it's being
+// actively dragged and is following the pointer via a raw transform
+// instead, so it doesn't visually snap to its old/new cell mid-drag.
+function applyGridLayout(layout, excludeId) {
+  var packed = normalizeLayout(packMissingPositions(layout));
   var placedIds = {};
   packed.forEach(function (w) {
     placedIds[w.id] = true;
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
     if (!el) return;
-    el.style.gridColumn = (w.x + 1) + ' / span ' + w.w;
-    el.style.gridRow = (w.y + 1) + ' / span ' + w.h;
+    if (w.id !== excludeId) {
+      el.style.gridColumn = (w.x + 1) + ' / span ' + w.w;
+      el.style.gridRow = (w.y + 1) + ' / span ' + w.h;
+    }
     el.style.display = w.enabled ? '' : 'none';
+    el.classList.toggle('widget-locked', w.id === LOCKED_WIDGET_ID);
   });
   WIDGET_REGISTRY.forEach(function (r) {
     if (placedIds[r.id]) return;
     var el = document.querySelector('[data-widget-id="' + r.id + '"]');
     if (el) el.style.display = 'none';
   });
-  // The old list-reorder system's financial/non-financial dividers don't
-  // have a coherent role in a freeform grid a user can arrange however they
-  // want - permanently hidden rather than positioned.
+  // The old list-reorder system's financial/non-financial dividers are
+  // superseded by the border-top "spacer" on the locked week-nav widget
+  // itself (see styles.css) - these stay permanently hidden.
   var calendarDivider = document.getElementById('calendar-divider');
   var financeDivider = document.getElementById('finance-divider');
   if (calendarDivider) calendarDivider.style.display = 'none';
@@ -2459,33 +2539,39 @@ function findWidget(id) {
   return currentWidgetLayout.find(function (w) { return w.id === id; });
 }
 
-// Swaps with whatever's currently at the exact target top-left cell, if
-// anything - the simplest collision handling that still feels intentional
-// (matches how iOS itself swaps two icons dragged onto each other), rather
-// than a full push/reflow algorithm.
-function moveWidgetTo(id, x, y) {
-  var moving = findWidget(id);
-  if (!moving) return;
-  var occupant = currentWidgetLayout.find(function (w) { return w.id !== id && w.x === x && w.y === y; });
+// Pure: returns a NEW layout array with `id` moved to (x, y), swapping with
+// whatever currently occupies that exact top-left cell, if anything - the
+// simplest collision handling that still feels intentional (matches how iOS
+// itself swaps two icons dragged onto each other). Never swaps onto the
+// locked week-nav widget's cell, since it isn't allowed to move. Used both
+// for the live preview during a drag (called on every cell change, not
+// committed) and to compute the final position on drop (committed).
+function layoutWithMove(layout, id, x, y) {
+  var result = layout.map(function (w) { return Object.assign({}, w); });
+  var moving = result.find(function (w) { return w.id === id; });
+  if (!moving) return result;
+  var occupant = result.find(function (w) { return w.id !== id && w.id !== LOCKED_WIDGET_ID && w.x === x && w.y === y; });
   if (occupant) {
     occupant.x = moving.x;
     occupant.y = moving.y;
   }
   moving.x = Math.min(x, GRID_COLS - moving.w);
   moving.y = y;
-  currentWidgetLayout = applyGridLayout(currentWidgetLayout);
-  persistWidgetLayout();
+  return result;
 }
 
 var dragState = null;
 var resizeState = null;
+var pendingPointerFrame = null;
 
 document.addEventListener('pointerdown', function (e) {
   if (!editModeOn) return;
+  if (e.target.closest('.widget-remove-btn')) return; // handled by its own click listener
+  var moduleEl = e.target.closest('.module[data-widget-id]');
+  if (!moduleEl) return;
+  if (moduleEl.getAttribute('data-widget-id') === LOCKED_WIDGET_ID) return; // date picker is fixed in place
   if (e.target.closest('.widget-resize-handle')) {
-    var resizeEl = e.target.closest('[data-widget-id]');
-    if (!resizeEl) return;
-    var item = findWidget(resizeEl.getAttribute('data-widget-id'));
+    var item = findWidget(moduleEl.getAttribute('data-widget-id'));
     if (!item) return;
     resizeState = { id: item.id, startX: e.clientX, startY: e.clientY, startW: item.w, startH: item.h };
     try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
@@ -2493,37 +2579,70 @@ document.addEventListener('pointerdown', function (e) {
     e.stopPropagation();
     return;
   }
-  if (e.target.closest('.widget-remove-btn')) return; // handled by its own click listener
-  var moduleEl = e.target.closest('.module[data-widget-id]');
-  if (!moduleEl) return;
-  dragState = { id: moduleEl.getAttribute('data-widget-id'), startClientX: e.clientX, startClientY: e.clientY };
+  dragState = {
+    id: moduleEl.getAttribute('data-widget-id'),
+    startClientX: e.clientX,
+    startClientY: e.clientY,
+    lastClientX: e.clientX,
+    lastClientY: e.clientY,
+    lastCellX: null,
+    lastCellY: null,
+    previewLayout: null,
+  };
   moduleEl.classList.add('widget-dragging');
   try { moduleEl.setPointerCapture(e.pointerId); } catch (err) {}
   e.preventDefault();
 });
 
+// rAF-batched so a flood of pointermove events (touch fires these at a very
+// high rate) only ever produces one transform/layout write per frame -
+// writing the DOM synchronously on every single event is what made the old
+// drag feel "shaky", especially on iPad.
 document.addEventListener('pointermove', function (e) {
+  if (!dragState && !resizeState) return;
+  e.preventDefault();
   if (dragState) {
-    var el = document.querySelector('[data-widget-id="' + dragState.id + '"]');
-    if (el) {
-      var dx = e.clientX - dragState.startClientX;
-      var dy = e.clientY - dragState.startClientY;
-      el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-    }
-  } else if (resizeState) {
-    var m = cellMetrics();
-    var rdx = e.clientX - resizeState.startX;
-    var rdy = e.clientY - resizeState.startY;
-    var addCols = Math.round(rdx / (m.colWidth + m.gap));
-    var addRows = Math.round(rdy / m.rowHeight);
-    var item = findWidget(resizeState.id);
-    if (item) {
-      item.w = Math.max(1, Math.min(MAX_SPAN, GRID_COLS - item.x, resizeState.startW + addCols));
-      item.h = Math.max(1, Math.min(MAX_SPAN, resizeState.startH + addRows));
-      currentWidgetLayout = applyGridLayout(currentWidgetLayout);
-    }
+    dragState.lastClientX = e.clientX;
+    dragState.lastClientY = e.clientY;
+  } else {
+    resizeState.lastClientX = e.clientX;
+    resizeState.lastClientY = e.clientY;
   }
-});
+  if (pendingPointerFrame) return;
+  pendingPointerFrame = requestAnimationFrame(function () {
+    pendingPointerFrame = null;
+    if (dragState) {
+      var el = document.querySelector('[data-widget-id="' + dragState.id + '"]');
+      if (el) {
+        var dx = dragState.lastClientX - dragState.startClientX;
+        var dy = dragState.lastClientY - dragState.startClientY;
+        el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      }
+      var cell = pointToCell(dragState.lastClientX, dragState.lastClientY);
+      if (cell.x !== dragState.lastCellX || cell.y !== dragState.lastCellY) {
+        dragState.lastCellX = cell.x;
+        dragState.lastCellY = cell.y;
+        // Live preview: show where everything ELSE would land if dropped
+        // here right now (the dragged widget itself stays transform-driven,
+        // excluded below, so it keeps following the finger with no jump).
+        dragState.previewLayout = layoutWithMove(currentWidgetLayout, dragState.id, cell.x, cell.y);
+        applyGridLayout(dragState.previewLayout, dragState.id);
+      }
+    } else if (resizeState) {
+      var m = cellMetrics();
+      var rdx = resizeState.lastClientX - resizeState.startX;
+      var rdy = resizeState.lastClientY - resizeState.startY;
+      var addCols = Math.round(rdx / (m.colWidth + m.gap));
+      var addRows = Math.round(rdy / m.rowHeight);
+      var item = findWidget(resizeState.id);
+      if (item) {
+        item.w = Math.max(1, Math.min(MAX_SPAN, GRID_COLS - item.x, resizeState.startW + addCols));
+        item.h = Math.max(1, Math.min(MAX_SPAN, resizeState.startH + addRows));
+        currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+      }
+    }
+  });
+}, { passive: false });
 
 document.addEventListener('pointerup', function (e) {
   if (dragState) {
@@ -2531,9 +2650,9 @@ document.addEventListener('pointerup', function (e) {
     if (el) {
       el.classList.remove('widget-dragging');
       el.style.transform = '';
-      var cell = pointToCell(e.clientX, e.clientY);
-      moveWidgetTo(dragState.id, cell.x, cell.y);
     }
+    currentWidgetLayout = applyGridLayout(dragState.previewLayout || currentWidgetLayout);
+    persistWidgetLayout();
     dragState = null;
   } else if (resizeState) {
     resizeState = null;
@@ -2826,6 +2945,11 @@ function fmtGameDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+function teamLogoImg(team, size) {
+  if (!team.logo) return '';
+  return '<img src="' + team.logo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:contain;vertical-align:middle;margin-right:0.3rem;">';
+}
+
 function renderGameRow(g, favTeamId) {
   var favIsHome = g.home.id === favTeamId;
   var favTeam = favIsHome ? g.home : g.away;
@@ -2838,8 +2962,8 @@ function renderGameRow(g, favTeamId) {
   }
   var oppLabel = (favIsHome ? 'vs ' : '@ ') + oppTeam.name;
   return (
-    '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:0.1rem 0;">' +
-      '<span style="color:var(--muted);">' + oppLabel + '</span>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;padding:0.1rem 0;">' +
+      '<span style="color:var(--muted);display:flex;align-items:center;">' + teamLogoImg(oppTeam, 16) + oppLabel + '</span>' +
       '<span>' + scoreText + '</span>' +
     '</div>'
   );
@@ -2937,7 +3061,7 @@ async function renderSportsFavoritesList() {
       listEl.innerHTML = favorites.map(function (f) {
         return (
           '<div class="breakdown-row" data-id="' + f.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;">' +
-            '<span>' + f.team_name + ' <span style="color:var(--muted);font-size:0.75rem;">(' + f.league.toUpperCase() + ')</span></span>' +
+            '<span style="display:flex;align-items:center;">' + teamLogoImg({ logo: f.team_logo }, 20) + f.team_name + ' <span style="color:var(--muted);font-size:0.75rem;">&nbsp;(' + f.league.toUpperCase() + ')</span></span>' +
             '<button type="button" class="icon-btn remove-sports-favorite-btn" data-id="' + f.id + '" aria-label="Remove">&times;</button>' +
           '</div>'
         );
@@ -2987,7 +3111,7 @@ document.getElementById('sports-search-form').addEventListener('submit', async f
       return;
     }
     resultsEl.innerHTML = teams.slice(0, 15).map(function (t, i) {
-      return '<div class="weather-search-result" data-idx="' + i + '">' + t.name + '</div>';
+      return '<div class="weather-search-result" data-idx="' + i + '" style="display:flex;align-items:center;">' + teamLogoImg(t, 18) + t.name + '</div>';
     }).join('');
     resultsEl.querySelectorAll('.weather-search-result').forEach(function (el) {
       el.addEventListener('click', async function () {
@@ -3015,6 +3139,113 @@ document.getElementById('sports-search-form').addEventListener('submit', async f
     statusEl.className = 'form-status error';
   }
 });
+
+// ---- Per-league widgets - league-wide upcoming/recent games, distinct
+// from the favorite-teams Sports widget above (routes/sports.js's
+// /:league/scoreboard, not /scores). The 3 college leagues get a filter
+// (all D1/FBS, Top 25, or one conference) saved per-widget in localStorage -
+// simple per-device persistence, no server schema change needed for a
+// 2-user personal dashboard. ----
+var LEAGUE_WIDGETS = [
+  { id: 'league-nfl', league: 'nfl', college: false },
+  { id: 'league-mlb', league: 'mlb', college: false },
+  { id: 'league-nhl', league: 'nhl', college: false },
+  { id: 'league-nba', league: 'nba', college: false },
+  { id: 'league-ncaaf', league: 'ncaaf', college: true },
+  { id: 'league-ncaambb', league: 'ncaambb', college: true },
+  { id: 'league-ncaawbb', league: 'ncaawbb', college: true },
+];
+var leagueWidgetRotateTimers = {};
+
+function leagueFilterStorageKey(widgetId) {
+  return 'league-widget-filter:' + widgetId;
+}
+
+function renderLeagueGameRow(g) {
+  var scoreText;
+  if (g.status.state === 'final' || g.status.state === 'live') {
+    scoreText = g.away.score + '-' + g.home.score + (g.status.state === 'live' ? ' •' : '');
+  } else {
+    scoreText = fmtGameDate(g.date);
+  }
+  return (
+    '<li class="league-game-row">' +
+      '<span class="league-game-teams">' +
+        teamLogoImg(g.away, 16) + g.away.name + ' @ ' + teamLogoImg(g.home, 16) + g.home.name +
+      '</span>' +
+      '<span class="league-game-score">' + scoreText + '</span>' +
+    '</li>'
+  );
+}
+
+// Recent scores rotate 3 rows at a time every 6 seconds instead of showing
+// a long static list, so the widget stays a normal card size.
+function startRecentRotation(widgetId, recentEvents, listEl) {
+  if (leagueWidgetRotateTimers[widgetId]) clearInterval(leagueWidgetRotateTimers[widgetId]);
+  var page = 0;
+  var pageSize = 3;
+  var pageCount = Math.max(1, Math.ceil(recentEvents.length / pageSize));
+  function renderPage() {
+    var slice = recentEvents.slice(page * pageSize, page * pageSize + pageSize);
+    listEl.innerHTML = slice.length ? slice.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">No recent games</li>';
+  }
+  renderPage();
+  if (pageCount > 1) {
+    leagueWidgetRotateTimers[widgetId] = setInterval(function () {
+      page = (page + 1) % pageCount;
+      renderPage();
+    }, 6000);
+  }
+}
+
+async function loadLeagueWidget(cfg) {
+  var bodyEl = document.getElementById(cfg.id + '-body');
+  if (!bodyEl) return;
+  var filter = cfg.college ? (localStorage.getItem(leagueFilterStorageKey(cfg.id)) || 'all') : 'all';
+  bodyEl.innerHTML =
+    '<div class="league-widget-section-label">Upcoming</div>' +
+    '<ul class="league-game-list" id="' + cfg.id + '-upcoming"><li class="skel skel-row"></li></ul>' +
+    '<div class="league-widget-section-label">Recent</div>' +
+    '<ul class="league-game-list" id="' + cfg.id + '-recent"><li class="skel skel-row"></li></ul>';
+  try {
+    var data = await getJSON('/api/sports/' + cfg.league + '/scoreboard?filter=' + encodeURIComponent(filter));
+    var upcomingEl = document.getElementById(cfg.id + '-upcoming');
+    var recentEl = document.getElementById(cfg.id + '-recent');
+    var upcoming = (data.upcoming || []).slice(0, 5);
+    upcomingEl.innerHTML = upcoming.length ? upcoming.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">No upcoming games</li>';
+    startRecentRotation(cfg.id, data.recent || [], recentEl);
+  } catch (err) {
+    bodyEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Could not load.</p>';
+  }
+}
+
+async function initLeagueWidgetFilter(cfg) {
+  var select = document.getElementById(cfg.id + '-filter');
+  if (!select) return;
+  var saved = localStorage.getItem(leagueFilterStorageKey(cfg.id)) || 'all';
+  var options = ['<option value="all">All D1/FBS</option>', '<option value="top25">Top 25</option>'];
+  try {
+    var conferences = await getJSON('/api/sports/' + cfg.league + '/conferences');
+    conferences.forEach(function (c) {
+      options.push('<option value="' + c.id + '">' + c.name + '</option>');
+    });
+  } catch (err) {
+    // Filter still works with just "All"/"Top 25" if the conference list fails to load.
+  }
+  select.innerHTML = options.join('');
+  select.value = saved;
+  select.addEventListener('change', function () {
+    localStorage.setItem(leagueFilterStorageKey(cfg.id), select.value);
+    loadLeagueWidget(cfg);
+  });
+}
+
+function initLeagueWidgets() {
+  LEAGUE_WIDGETS.forEach(function (cfg) {
+    if (cfg.college) initLeagueWidgetFilter(cfg);
+    loadLeagueWidget(cfg);
+  });
+}
 
 // ---- Moon phase widget - pure calculation, no API needed ----
 var MOON_PHASE_NAMES = [
@@ -3128,6 +3359,7 @@ loadWidgetLayout().then(function () {
 loadSlideshow();
 loadWeather();
 loadSports();
+initLeagueWidgets();
 populateStandingsSelect();
 renderMoonPhase();
 loadNotes();
