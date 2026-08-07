@@ -6,7 +6,11 @@ const { rateLimit } = require('../lib/rateLimit');
 // Minimal fake req/res good enough to exercise the middleware without an
 // actual Express app or HTTP server.
 function fakeReqRes(ip) {
-  const req = { ip: ip || '1.2.3.4' };
+  // getClientIp() prefers X-Forwarded-For (see lib/rateLimit.js for why -
+  // Railway's own req.ip isn't reliably stable across requests), so these
+  // fakes need a headers object too, not just req.ip.
+  const resolvedIp = ip || '1.2.3.4';
+  const req = { ip: resolvedIp, headers: { 'x-forwarded-for': resolvedIp } };
   const res = {
     statusCode: null,
     headers: {},
