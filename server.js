@@ -83,6 +83,16 @@ app.use('/api/railway', require('./routes/railway'));
 app.use('/api/todos', require('./routes/todos'));
 app.use('/api/ticker', require('./routes/ticker'));
 
+// Lets a second deployment of this exact codebase (same repo, different
+// service/database/env vars) hide widgets that don't apply to it - e.g. a
+// dashboard for someone without a Robinhood account or without this
+// project's own Railway/AI-agent infra - without forking the code.
+app.get('/api/config', (req, res) => {
+  const disabledWidgets = (process.env.DISABLED_WIDGETS || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+  res.json({ disabledWidgets });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

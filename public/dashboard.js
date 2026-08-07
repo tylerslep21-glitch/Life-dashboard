@@ -479,7 +479,7 @@ async function loadFinanceAndRobinhood() {
   } catch (err) { earliestWeekStart = currentWeekStart; }
 
   renderBankWidget();
-  renderRobinhoodWidgets();
+  if (widgetEnabled('robinhood')) renderRobinhoodWidgets();
   await loadWeekView();
 }
 
@@ -1631,13 +1631,35 @@ document.querySelectorAll('.module').forEach(function (el) {
 
 renderChristmasLights();
 
+// ---- per-deployment widget config ----
+// Lets a second deployment of this same codebase hide widgets that don't
+// apply to it (see /api/config in server.js). Sections carry
+// data-widget="..." attributes for this to target.
+var disabledWidgets = [];
+async function loadConfig() {
+  try {
+    var cfg = await getJSON('/api/config');
+    disabledWidgets = cfg.disabledWidgets || [];
+  } catch (err) {
+    disabledWidgets = [];
+  }
+  disabledWidgets.forEach(function (w) {
+    document.querySelectorAll('[data-widget="' + w + '"]').forEach(function (el) {
+      el.style.display = 'none';
+    });
+  });
+}
+function widgetEnabled(name) { return disabledWidgets.indexOf(name) === -1; }
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
 loadSubscriptions();
 loadExams();
 loadCountdowns();
-loadAgentTracker();
-loadRailwayStatus();
 loadTodos();
 loadFinanceAndRobinhood();
+loadConfig().then(function () {
+  if (widgetEnabled('agent-tracker')) loadAgentTracker();
+  if (widgetEnabled('railway')) loadRailwayStatus();
+});
