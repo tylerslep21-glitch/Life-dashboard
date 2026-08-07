@@ -54,6 +54,25 @@ CREATE TABLE IF NOT EXISTS users (
 -- array) column addition is safe to add directly with NOT NULL DEFAULT, unlike
 -- the user_id columns above which needed a real backfill first.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_themes JSONB NOT NULL DEFAULT '[]';
+-- Saved geocoded location for the Weather widget (lat/lon + a display label
+-- like "Chicago, IL") - null until the user picks one via the widget's
+-- location search, which is its own free geocoding call, not stored here.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS weather_location JSONB;
+-- Freeform personal scratchpad for the Notes widget - one text blob per
+-- user (not a list of separate notes), autosaved from the dashboard.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
+
+-- Up to 5 photos per user for the Photos/slideshow widget, stored as base64
+-- data URIs like countdown photos and custom-theme background images
+-- elsewhere in this schema. A dedicated table (not a JSONB column on users)
+-- so adding/removing one photo doesn't require resending all the others.
+CREATE TABLE IF NOT EXISTS slideshow_photos (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  image TEXT NOT NULL,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE TABLE IF NOT EXISTS finance_entries (
   id SERIAL PRIMARY KEY,

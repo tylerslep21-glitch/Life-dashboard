@@ -106,6 +106,44 @@
       <ul class="todo-list" id="todo-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
+    <section class="module" data-widget-id="slideshow">
+      <div class="module-head">
+        <h2>Photos</h2>
+        <button type="button" class="icon-btn" id="open-slideshow-form" aria-label="Manage photos">+</button>
+      </div>
+      <div class="slideshow-viewport" id="slideshow-viewport">
+        <p id="slideshow-empty" style="color: var(--muted); font-size: 0.85rem;">No photos yet.</p>
+      </div>
+      <div class="slideshow-dots" id="slideshow-dots"></div>
+    </section>
+
+    <section class="module" data-widget-id="weather">
+      <div class="module-head">
+        <h2>Weather</h2>
+        <button type="button" class="icon-btn" id="open-weather-form" aria-label="Set location">+</button>
+      </div>
+      <div id="weather-content">
+        <p class="sync-stamp" id="weather-location-label">Set a location&hellip;</p>
+      </div>
+    </section>
+
+    <section class="module" data-widget-id="moon-phase">
+      <div class="module-head"><h2>Moon phase</h2></div>
+      <div class="moon-phase-content">
+        <span class="moon-phase-emoji" id="moon-phase-emoji">🌙</span>
+        <div>
+          <p class="moon-phase-name" id="moon-phase-name">&hellip;</p>
+          <p class="sync-stamp" id="moon-phase-illumination"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="module" data-widget-id="notes">
+      <div class="module-head"><h2>Notes</h2></div>
+      <textarea id="notes-textarea" class="notes-textarea" placeholder="Jot something down&hellip;"></textarea>
+      <p class="form-status" id="notes-status"></p>
+    </section>
+
     <div class="section-divider" id="finance-divider"></div>
 
     <section class="module span-3 week-nav-box" data-widget-id="week-nav">
@@ -384,6 +422,42 @@
       </div>
       <div class="form-status" id="todo-form-status"></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="slideshow-modal-overlay">
+  <div class="modal">
+    <h2>Photos</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Up to 5 photos - cycles through them automatically.
+    </p>
+    <div id="slideshow-manage-list"></div>
+    <div class="field-group" style="margin-top: 0.5rem;">
+      <label for="slideshow-file-input">Add a photo (max 2MB)</label>
+      <input type="file" id="slideshow-file-input" accept="image/*">
+    </div>
+    <p class="form-status" id="slideshow-form-status"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="cancel-slideshow-form">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="weather-modal-overlay">
+  <div class="modal">
+    <h2>Weather location</h2>
+    <form id="weather-search-form">
+      <div class="field-group">
+        <label for="weather-search-input">City</label>
+        <input type="text" id="weather-search-input" placeholder="e.g. Chicago" autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-weather-form">Close</button>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+    <div id="weather-search-results"></div>
+    <p class="form-status" id="weather-form-status"></p>
   </div>
 </div>
 

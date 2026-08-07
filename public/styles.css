@@ -1062,3 +1062,111 @@
 }
 .custom-theme-actions button { margin-left: 0.4rem; }
 
+/* ---- Photos / slideshow widget ---- */
+.slideshow-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slideshow-viewport img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.slideshow-viewport img.active { opacity: 1; }
+.slideshow-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+}
+.slideshow-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--border);
+}
+.slideshow-dot.active { background: var(--accent); }
+.slideshow-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.slideshow-manage-row:last-child { border-bottom: none; }
+.slideshow-manage-row img {
+  width: 3rem;
+  height: 2.2rem;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 0.6rem;
+}
+.slideshow-manage-thumb-wrap { display: flex; align-items: center; }
+
+/* ---- Weather widget ---- */
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.weather-icon { font-size: 2.4rem; line-height: 1; }
+.weather-temp {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.7rem;
+  font-weight: 700;
+}
+.weather-desc { color: var(--muted); font-size: 0.85rem; }
+.weather-sub-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.weather-search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.weather-search-result:last-child { border-bottom: none; }
+.weather-search-result:hover { background: var(--paper); }
+
+/* ---- Moon phase widget ---- */
+.moon-phase-content {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.moon-phase-emoji { font-size: 2.6rem; line-height: 1; }
+.moon-phase-name { font-weight: 600; margin-bottom: 0.15rem; }
+
+/* ---- Notes widget ---- */
+.notes-textarea {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 0.88rem;
+  box-sizing: border-box;
+}
+.notes-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+

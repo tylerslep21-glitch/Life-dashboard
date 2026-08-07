@@ -2019,6 +2019,10 @@ var WIDGET_REGISTRY = [
   { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true },
   { id: 'railway', name: 'Railway', adminOnly: true },
   { id: 'todo', name: 'To-Do' },
+  { id: 'slideshow', name: 'Photos' },
+  { id: 'weather', name: 'Weather' },
+  { id: 'moon-phase', name: 'Moon phase' },
+  { id: 'notes', name: 'Notes' },
   { id: 'week-nav', name: 'Week navigator' },
   { id: 'finance-stats', name: 'Net worth / spent / income' },
   { id: 'net-worth-breakdown', name: 'Net worth breakdown' },
@@ -2047,6 +2051,10 @@ var WIDGET_CATEGORY = {
   'agent-tracker': 'non-financial',
   railway: 'non-financial',
   todo: 'non-financial',
+  slideshow: 'non-financial',
+  weather: 'non-financial',
+  'moon-phase': 'non-financial',
+  notes: 'non-financial',
   'week-nav': 'financial',
   'finance-stats': 'financial',
   'net-worth-breakdown': 'financial',
@@ -2250,6 +2258,269 @@ customizeOverlay.addEventListener('click', function (e) {
   if (e.target === customizeOverlay) customizeOverlay.classList.remove('open');
 });
 
+// ---- Photos / slideshow widget (up to 5 photos, auto-advancing) ----
+var slideshowPhotos = [];
+var slideshowIndex = 0;
+var slideshowTimer = null;
+var SLIDESHOW_INTERVAL_MS = 6000;
+
+async function loadSlideshow() {
+  try {
+    slideshowPhotos = await getJSON('/api/slideshow');
+  } catch (err) {
+    slideshowPhotos = [];
+  }
+  renderSlideshowViewport();
+}
+
+function renderSlideshowViewport() {
+  var viewport = document.getElementById('slideshow-viewport');
+  var dotsEl = document.getElementById('slideshow-dots');
+  if (slideshowTimer) {
+    clearInterval(slideshowTimer);
+    slideshowTimer = null;
+  }
+
+  if (!slideshowPhotos.length) {
+    viewport.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No photos yet.</p>';
+    dotsEl.innerHTML = '';
+    return;
+  }
+
+  slideshowIndex = 0;
+  viewport.innerHTML = slideshowPhotos.map(function (p, i) {
+    return '<img src="' + p.image + '" class="' + (i === 0 ? 'active' : '') + '">';
+  }).join('');
+  dotsEl.innerHTML = slideshowPhotos.map(function (p, i) {
+    return '<span class="slideshow-dot' + (i === 0 ? ' active' : '') + '"></span>';
+  }).join('');
+
+  if (slideshowPhotos.length > 1) {
+    slideshowTimer = setInterval(function () {
+      var imgs = viewport.querySelectorAll('img');
+      var dots = dotsEl.querySelectorAll('.slideshow-dot');
+      imgs[slideshowIndex].classList.remove('active');
+      dots[slideshowIndex].classList.remove('active');
+      slideshowIndex = (slideshowIndex + 1) % slideshowPhotos.length;
+      imgs[slideshowIndex].classList.add('active');
+      dots[slideshowIndex].classList.add('active');
+    }, SLIDESHOW_INTERVAL_MS);
+  }
+}
+
+function renderSlideshowManageList() {
+  var listEl = document.getElementById('slideshow-manage-list');
+  if (!slideshowPhotos.length) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No photos yet.</p>';
+  } else {
+    listEl.innerHTML = slideshowPhotos.map(function (p) {
+      return (
+        '<div class="slideshow-manage-row" data-id="' + p.id + '">' +
+          '<span class="slideshow-manage-thumb-wrap"><img src="' + p.image + '" alt="">Photo</span>' +
+          '<button type="button" class="icon-btn remove-slideshow-photo-btn" data-id="' + p.id + '" aria-label="Remove">&times;</button>' +
+        '</div>'
+      );
+    }).join('');
+    listEl.querySelectorAll('.remove-slideshow-photo-btn').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        await fetch('/api/slideshow/' + btn.dataset.id, { method: 'DELETE' });
+        await loadSlideshow();
+        renderSlideshowManageList();
+      });
+    });
+  }
+  document.getElementById('slideshow-file-input').closest('.field-group').style.display = slideshowPhotos.length >= 5 ? 'none' : '';
+}
+
+var slideshowOverlay = document.getElementById('slideshow-modal-overlay');
+document.getElementById('open-slideshow-form').addEventListener('click', function () {
+  document.getElementById('slideshow-form-status').textContent = '';
+  renderSlideshowManageList();
+  slideshowOverlay.classList.add('open');
+});
+document.getElementById('cancel-slideshow-form').addEventListener('click', function () {
+  slideshowOverlay.classList.remove('open');
+});
+slideshowOverlay.addEventListener('click', function (e) {
+  if (e.target === slideshowOverlay) slideshowOverlay.classList.remove('open');
+});
+
+document.getElementById('slideshow-file-input').addEventListener('change', async function () {
+  var statusEl = document.getElementById('slideshow-form-status');
+  var input = this;
+  var file = input.files && input.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) {
+    statusEl.textContent = 'Photo is too large (max 2MB).';
+    statusEl.className = 'form-status error';
+    input.value = '';
+    return;
+  }
+  try {
+    var dataUri = await readFileAsDataURL(file);
+    var res = await fetch('/api/slideshow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUri }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Could not add photo');
+    statusEl.textContent = '';
+    input.value = '';
+    await loadSlideshow();
+    renderSlideshowManageList();
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'form-status error';
+    input.value = '';
+  }
+});
+
+// ---- Weather widget (Open-Meteo - free, no API key) ----
+async function loadWeather() {
+  var contentEl = document.getElementById('weather-content');
+  try {
+    var data = await getJSON('/api/weather');
+    if (!data) {
+      contentEl.innerHTML = '<p class="sync-stamp">Set a location&hellip;</p>';
+      return;
+    }
+    contentEl.innerHTML =
+      '<p class="sync-stamp">' + data.label + '</p>' +
+      '<div class="weather-main">' +
+        '<span class="weather-icon">' + data.current.icon + '</span>' +
+        '<div>' +
+          '<div class="weather-temp">' + data.current.temp + '&deg;F</div>' +
+          '<div class="weather-desc">' + data.current.description + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="weather-sub-row">' +
+        '<span>H: ' + data.today.high + '&deg; L: ' + data.today.low + '&deg;</span>' +
+        '<span>Humidity ' + data.current.humidity + '%</span>' +
+        '<span>Wind ' + data.current.wind + ' mph</span>' +
+      '</div>';
+  } catch (err) {
+    contentEl.innerHTML = '<p class="sync-stamp">Could not load weather.</p>';
+  }
+}
+
+var weatherOverlay = document.getElementById('weather-modal-overlay');
+document.getElementById('open-weather-form').addEventListener('click', function () {
+  document.getElementById('weather-form-status').textContent = '';
+  document.getElementById('weather-search-results').innerHTML = '';
+  document.getElementById('weather-search-input').value = '';
+  weatherOverlay.classList.add('open');
+});
+document.getElementById('cancel-weather-form').addEventListener('click', function () {
+  weatherOverlay.classList.remove('open');
+});
+weatherOverlay.addEventListener('click', function (e) {
+  if (e.target === weatherOverlay) weatherOverlay.classList.remove('open');
+});
+
+document.getElementById('weather-search-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('weather-form-status');
+  var resultsEl = document.getElementById('weather-search-results');
+  var q = document.getElementById('weather-search-input').value.trim();
+  if (!q) return;
+  statusEl.textContent = '';
+  resultsEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Searching&hellip;</p>';
+  try {
+    var results = await getJSON('/api/weather/search?q=' + encodeURIComponent(q));
+    if (!results.length) {
+      resultsEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No matches found.</p>';
+      return;
+    }
+    resultsEl.innerHTML = results.map(function (r, i) {
+      return '<div class="weather-search-result" data-idx="' + i + '">' + r.label + '</div>';
+    }).join('');
+    resultsEl.querySelectorAll('.weather-search-result').forEach(function (el) {
+      el.addEventListener('click', async function () {
+        var r = results[Number(el.dataset.idx)];
+        try {
+          await fetch('/api/me/weather-location', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ location: { lat: r.lat, lon: r.lon, label: r.label } }),
+          });
+          weatherOverlay.classList.remove('open');
+          await loadWeather();
+        } catch (err) {
+          statusEl.textContent = 'Could not save location.';
+          statusEl.className = 'form-status error';
+        }
+      });
+    });
+  } catch (err) {
+    resultsEl.innerHTML = '';
+    statusEl.textContent = 'Search failed.';
+    statusEl.className = 'form-status error';
+  }
+});
+
+// ---- Moon phase widget - pure calculation, no API needed ----
+var MOON_PHASES = [
+  { name: 'New moon', emoji: '🌑' },
+  { name: 'Waxing crescent', emoji: '🌒' },
+  { name: 'First quarter', emoji: '🌓' },
+  { name: 'Waxing gibbous', emoji: '🌔' },
+  { name: 'Full moon', emoji: '🌕' },
+  { name: 'Waning gibbous', emoji: '🌖' },
+  { name: 'Last quarter', emoji: '🌗' },
+  { name: 'Waning crescent', emoji: '🌘' },
+];
+
+function renderMoonPhase() {
+  var synodicMonth = 29.530588853; // average days per lunar cycle
+  var knownNewMoon = Date.UTC(2000, 0, 6, 18, 14, 0); // a real reference new moon
+  var daysSince = (Date.now() - knownNewMoon) / 86400000;
+  var age = daysSince % synodicMonth;
+  if (age < 0) age += synodicMonth;
+
+  var phaseIndex = Math.floor((age / synodicMonth) * 8 + 0.5) % 8;
+  var phase = MOON_PHASES[phaseIndex];
+  var illumination = Math.round((1 - Math.cos((age / synodicMonth) * 2 * Math.PI)) / 2 * 100);
+
+  document.getElementById('moon-phase-emoji').textContent = phase.emoji;
+  document.getElementById('moon-phase-name').textContent = phase.name;
+  document.getElementById('moon-phase-illumination').textContent =
+    illumination + '% illuminated · day ' + Math.floor(age) + ' of cycle';
+}
+
+// ---- Notes widget - one freeform blob per user, autosaved on a debounce ----
+var notesSaveTimer = null;
+
+async function loadNotes() {
+  try {
+    var me = await getJSON('/api/me');
+    document.getElementById('notes-textarea').value = me.notes || '';
+  } catch (err) {
+    // leave the textarea empty - nothing to lose since nothing loaded
+  }
+}
+
+document.getElementById('notes-textarea').addEventListener('input', function () {
+  var statusEl = document.getElementById('notes-status');
+  var value = this.value;
+  statusEl.textContent = 'Saving…';
+  statusEl.className = 'form-status';
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(function () {
+    fetch('/api/me/notes', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: value }),
+    }).then(function (res) {
+      if (!res.ok) throw new Error();
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'form-status ok';
+    }).catch(function () {
+      statusEl.textContent = 'Could not save.';
+      statusEl.className = 'form-status error';
+    });
+  }, 800);
+});
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
@@ -2261,3 +2532,7 @@ loadFinanceAndRobinhood();
 loadAgentTracker();
 loadRailwayStatus();
 loadWidgetLayout();
+loadSlideshow();
+loadWeather();
+renderMoonPhase();
+loadNotes();

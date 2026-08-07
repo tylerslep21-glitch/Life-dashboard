@@ -96,6 +96,8 @@ app.use('/api/railway', require('./routes/railway'));
 app.use('/api/todos', require('./routes/todos'));
 app.use('/api/ticker', require('./routes/ticker'));
 app.use('/api/me', require('./routes/me'));
+app.use('/api/slideshow', require('./routes/slideshow'));
+app.use('/api/weather', require('./routes/weather'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
