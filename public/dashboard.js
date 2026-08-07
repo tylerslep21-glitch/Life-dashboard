@@ -2277,35 +2277,103 @@ renderChristmasLights();
 // account (Robinhood/agent/infra data is tied specifically to that account
 // server-side - see routes/robinhood.js) - other accounts never see them in
 // the gallery, and can't add them.
+// Each preview is a small HTML mockup built from the .wp-* building blocks
+// in styles.css, styled to resemble the widget's real markup/typography
+// (not just a text blurb) so picking something from the gallery isn't a
+// guessing game about what it'll actually look like on the dashboard.
+function leaguePreviewHTML(away, home, scoreOrTime) {
+  return (
+    '<div class="wp-label">Upcoming</div>' +
+    '<div class="wp-row"><span style="display:flex;align-items:center;gap:0.3rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+      '<span class="wp-dot"></span>' + away + ' @ <span class="wp-dot"></span>' + home +
+    '</span><span class="wp-muted">' + scoreOrTime + '</span></div>' +
+    '<div class="wp-label">Recent</div>' +
+    '<div class="wp-row"><span style="display:flex;align-items:center;gap:0.3rem;">' +
+      '<span class="wp-dot"></span>' + home + '</span><span class="wp-muted">24-17 W</span></div>'
+  );
+}
+
 var WIDGET_REGISTRY = [
-  { id: 'calendar', name: 'Calendar', preview: 'Team meeting · 2:00 PM\nDentist · tomorrow' },
-  { id: 'subscriptions', name: 'Subscriptions', preview: 'Netflix · $15.49/mo\nSpotify · $11.99/mo' },
-  { id: 'exams', name: 'Exams / Big Projects', preview: 'Final exam · in 12 days' },
-  { id: 'countdowns', name: 'Countdowns', preview: 'Vacation · 34 days left' },
-  { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true, preview: 'daily-sync · Active' },
-  { id: 'railway', name: 'Railway', adminOnly: true, preview: 'Life-dashboard · Running' },
-  { id: 'errors', name: 'Errors', adminOnly: true, preview: 'No errors logged' },
-  { id: 'todo', name: 'To-Do', preview: '☐ Buy groceries\n☑ Finish report' },
-  { id: 'slideshow', name: 'Photos', preview: '(rotating photo slideshow)' },
-  { id: 'weather', name: 'Weather', preview: '72°F · Partly cloudy' },
-  { id: 'sports', name: 'Sports', preview: 'Cowboys @ Eagles · Sun 1:00 PM' },
-  { id: 'league-nfl', name: 'NFL', preview: 'Cowboys @ Eagles · Sun 1:00 PM' },
-  { id: 'league-mlb', name: 'MLB', preview: 'Yankees @ Red Sox · 7:05 PM' },
-  { id: 'league-nhl', name: 'NHL', preview: 'Rangers @ Bruins · 7:00 PM' },
-  { id: 'league-nba', name: 'NBA', preview: 'Lakers @ Celtics · 7:30 PM' },
-  { id: 'league-ncaaf', name: 'NCAA Football', preview: 'Ohio State @ Michigan · Sat noon' },
-  { id: 'league-ncaambb', name: "NCAA Men's Basketball", preview: 'Duke @ UNC · 7:00 PM' },
-  { id: 'league-ncaawbb', name: "NCAA Women's Basketball", preview: 'UConn @ Iowa · 7:00 PM' },
-  { id: 'moon-phase', name: 'Moon phase', preview: 'Waxing gibbous · 78%' },
-  { id: 'notes', name: 'Notes', preview: '(freeform scratchpad)' },
-  { id: 'week-nav', name: 'Week navigator', preview: 'Week of Aug 4' },
-  { id: 'finance-stats', name: 'Net worth / spent / income', preview: 'Net worth $12,480' },
-  { id: 'net-worth-breakdown', name: 'Net worth breakdown', preview: '(asset/liability chart)' },
-  { id: 'spending-by-category', name: 'Spending by category', preview: '(spending chart)' },
-  { id: 'bank', name: 'Bank (1yr)', preview: '$4,210 · 1yr trend' },
-  { id: 'robinhood-agentic', name: 'Robinhood · Agentic', adminOnly: true, preview: '$1,204.55' },
-  { id: 'robinhood-individual', name: 'Robinhood · Individual', adminOnly: true, preview: '$3,880.12' },
-  { id: 'status-row', name: 'Status row', preview: '3 entries logged this week' },
+  { id: 'calendar', name: 'Calendar', preview:
+    '<div class="wp-row"><span>Team meeting</span><span class="wp-muted">2:00 PM</span></div>' +
+    '<div class="wp-row"><span>Dentist</span><span class="wp-muted">Tomorrow</span></div>'
+  },
+  { id: 'subscriptions', name: 'Subscriptions', preview:
+    '<div class="wp-row"><span>Netflix</span><span class="wp-muted">$15.49/mo</span></div>' +
+    '<div class="wp-row"><span>Spotify</span><span class="wp-muted">$11.99/mo</span></div>'
+  },
+  { id: 'exams', name: 'Exams / Big Projects', preview:
+    '<div class="wp-row"><span>Final exam</span><span class="wp-muted">in 12 days</span></div>' +
+    '<div class="wp-row"><span>Term paper</span><span class="wp-muted">in 25 days</span></div>'
+  },
+  { id: 'countdowns', name: 'Countdowns', preview:
+    '<div class="wp-row"><span>Vacation</span><span class="wp-muted">34 days left</span></div>' +
+    '<div class="wp-row"><span>Wedding</span><span class="wp-muted">61 days left</span></div>'
+  },
+  { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true, preview:
+    '<div class="wp-row"><span>daily-sync</span><span class="wp-pill wp-pill-ok">Active</span></div>' +
+    '<div class="wp-row"><span>backup-job</span><span class="wp-pill">Idle</span></div>'
+  },
+  { id: 'railway', name: 'Railway', adminOnly: true, preview:
+    '<div class="wp-row"><span>Life-dashboard</span><span class="wp-pill wp-pill-ok">Running</span></div>'
+  },
+  { id: 'errors', name: 'Errors', adminOnly: true, preview:
+    '<div class="wp-row"><span class="wp-muted">No errors logged</span></div>'
+  },
+  { id: 'todo', name: 'To-Do', preview:
+    '<div class="wp-row"><span>&#9744; Buy groceries</span></div>' +
+    '<div class="wp-row"><span>&#9745; Finish report</span></div>'
+  },
+  { id: 'slideshow', name: 'Photos', preview: '<div class="wp-photo-box"></div>' },
+  { id: 'weather', name: 'Weather', preview:
+    '<div class="wp-row"><span class="wp-title" style="font-size:1.1rem;">72&deg;F</span><span class="wp-muted">Partly cloudy</span></div>'
+  },
+  { id: 'sports', name: 'Favorite Teams', preview:
+    '<div class="wp-row"><span style="display:flex;align-items:center;gap:0.3rem;"><span class="wp-dot"></span>Cowboys</span></div>' +
+    '<div class="wp-row"><span class="wp-muted">@ Eagles</span><span class="wp-muted">Sun 1:00 PM</span></div>'
+  },
+  { id: 'league-nfl', name: 'NFL', preview: leaguePreviewHTML('Cowboys', 'Eagles', 'Sun 1:00 PM') },
+  { id: 'league-mlb', name: 'MLB', preview: leaguePreviewHTML('Yankees', 'Red Sox', '7:05 PM') },
+  { id: 'league-nhl', name: 'NHL', preview: leaguePreviewHTML('Rangers', 'Bruins', '7:00 PM') },
+  { id: 'league-nba', name: 'NBA', preview: leaguePreviewHTML('Lakers', 'Celtics', '7:30 PM') },
+  { id: 'league-ncaaf', name: 'NCAA Football', preview: leaguePreviewHTML('Ohio St', 'Michigan', 'Sat noon') },
+  { id: 'league-ncaambb', name: "NCAA Men's Basketball", preview: leaguePreviewHTML('Duke', 'UNC', '7:00 PM') },
+  { id: 'league-ncaawbb', name: "NCAA Women's Basketball", preview: leaguePreviewHTML('UConn', 'Iowa', '7:00 PM') },
+  { id: 'moon-phase', name: 'Moon phase', preview:
+    '<div class="wp-row" style="align-items:center;"><span style="font-size:1.3rem;">&#127768;</span>' +
+    '<span style="text-align:right;"><div>Waxing gibbous</div><div class="wp-muted">78% illuminated</div></span></div>'
+  },
+  { id: 'notes', name: 'Notes', preview: '<div class="wp-notes-box">Grocery list, gift ideas&hellip;</div>' },
+  { id: 'week-nav', name: 'Week navigator', preview:
+    '<div class="wp-row" style="justify-content:center;gap:0.6rem;"><span>&larr;</span><span class="wp-title">Week of Aug 4</span><span>&rarr;</span></div>'
+  },
+  { id: 'finance-stats', name: 'Net worth / spent / income', preview:
+    '<div class="wp-stat-grid">' +
+      '<div class="wp-stat"><div class="wp-stat-val">$12,480</div><div class="wp-muted">Net worth</div></div>' +
+      '<div class="wp-stat"><div class="wp-stat-val">$640</div><div class="wp-muted">Spent</div></div>' +
+      '<div class="wp-stat"><div class="wp-stat-val">$2,100</div><div class="wp-muted">Income</div></div>' +
+    '</div>'
+  },
+  { id: 'net-worth-breakdown', name: 'Net worth breakdown', preview:
+    '<div class="wp-bars"><span class="wp-bar" style="height:80%;"></span><span class="wp-bar" style="height:45%;"></span><span class="wp-bar" style="height:60%;"></span><span class="wp-bar" style="height:30%;"></span></div>'
+  },
+  { id: 'spending-by-category', name: 'Spending by category', preview:
+    '<div class="wp-row"><span>Groceries</span><span class="wp-muted">$210</span></div>' +
+    '<div class="wp-row"><span>Dining</span><span class="wp-muted">$140</span></div>'
+  },
+  { id: 'bank', name: 'Bank (1yr)', preview:
+    '<div class="wp-row"><span class="wp-stat-val">$4,210</span><span class="wp-muted">1yr trend</span></div>' +
+    '<div class="wp-bars" style="height:1.2rem;"><span class="wp-bar" style="height:40%;"></span><span class="wp-bar" style="height:55%;"></span><span class="wp-bar" style="height:50%;"></span><span class="wp-bar" style="height:70%;"></span><span class="wp-bar" style="height:65%;"></span></div>'
+  },
+  { id: 'robinhood-agentic', name: 'Robinhood · Agentic', adminOnly: true, preview:
+    '<div class="wp-row"><span class="wp-stat-val">$1,204.55</span><span style="color:#3ca05a;">&#9650; 2.1%</span></div>'
+  },
+  { id: 'robinhood-individual', name: 'Robinhood · Individual', adminOnly: true, preview:
+    '<div class="wp-row"><span class="wp-stat-val">$3,880.12</span><span style="color:#3ca05a;">&#9650; 0.6%</span></div>'
+  },
+  { id: 'status-row', name: 'Status row', preview:
+    '<div class="wp-row"><span class="wp-muted">3 entries logged this week</span></div>'
+  },
 ];
 
 var currentWidgetLayout = null; // [{id, enabled, x, y, w, h}, ...] as loaded from /api/me

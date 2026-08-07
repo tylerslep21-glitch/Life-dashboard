@@ -1338,9 +1338,75 @@
 .add-widget-card:hover { border-color: var(--accent); }
 .add-widget-card-name { font-weight: 600; font-size: 0.85rem; }
 .add-widget-card-preview {
+  width: 100%;
   font-size: 0.75rem;
+  color: var(--ink);
+}
+
+/* ---- Add-widget gallery preview "mockups" (see WIDGET_REGISTRY's preview
+   field in dashboard.js) - small building blocks styled to resemble each
+   widget's real markup/typography at a glance, instead of a plain text
+   blurb, so picking a widget from the gallery isn't a guessing game. ---- */
+.wp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.1rem 0;
+}
+.wp-muted { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
+.wp-title { font-weight: 600; font-size: 0.78rem; }
+.wp-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--muted);
-  white-space: pre-line;
+  margin-top: 0.25rem;
+}
+.wp-label:first-child { margin-top: 0; }
+.wp-pill {
+  font-size: 0.64rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--paper-raised, var(--border));
+  color: var(--muted);
+}
+.wp-pill-ok { background: rgba(60, 160, 90, 0.18); color: #3ca05a; }
+.wp-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.wp-stat-grid { display: flex; gap: 0.6rem; width: 100%; }
+.wp-stat { flex: 1; min-width: 0; }
+.wp-stat-val { font-weight: 600; font-size: 0.8rem; }
+.wp-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  height: 2rem;
+  width: 100%;
+}
+.wp-bar { flex: 1; background: var(--accent); opacity: 0.55; border-radius: 2px 2px 0 0; }
+.wp-photo-box {
+  width: 100%;
+  height: 2.6rem;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--border), var(--paper-raised, var(--border)));
+}
+.wp-notes-box {
+  width: 100%;
+  min-height: 2.2rem;
+  border-radius: 4px;
+  border: 1px dashed var(--border);
+  padding: 0.3rem 0.4rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* ---- Per-league widgets (NFL/MLB/NHL/NBA/NCAAF/NCAAMBB/NCAAWBB) - see
