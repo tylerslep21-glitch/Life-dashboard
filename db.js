@@ -143,10 +143,48 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
   client_id TEXT NOT NULL REFERENCES oauth_clients(client_id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- User-managed calendar feeds (label + ICS URL), added/removed from the
+-- Calendar module's own "+" button instead of being fixed at deploy time via
+-- CANVAS_ICS_URL/PERSONAL_ICS_URL env vars - each tenant's own database means
+-- these are naturally per-tenant with no extra work, e.g. tenant j can add
+-- their own "Bright Space" feed without touching this tenant's Canvas one.
+CREATE TABLE IF NOT EXISTS calendar_sources (
+  id SERIAL PRIMARY KEY,
+  label TEXT NOT NULL,
+  ics_url TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- One-off migration bookkeeping - see seedLegacyCalendarSources() below.
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT
+);
 `;
+
+// One-time carry-over of the old env-var calendar config into the new
+// self-service table, for the default tenant only (CANVAS_ICS_URL/
+// PERSONAL_ICS_URL were only ever this tenant's values - seeding tenant j's
+// database with them too would leak the default tenant's calendars into a
+// separate account). Guarded by a permanent flag in app_meta rather than
+// "does calendar_sources currently have rows" - the latter would silently
+// re-add both feeds if the user ever deleted them on purpose.
+async function seedLegacyCalendarSources() {
+  const { rows } = await pool.query("SELECT 1 FROM app_meta WHERE key = 'legacy_calendar_seeded'");
+  if (rows.length) return;
+  const seeds = [];
+  if (process.env.CANVAS_ICS_URL) seeds.push(['Canvas', process.env.CANVAS_ICS_URL]);
+  if (process.env.PERSONAL_ICS_URL) seeds.push(['Personal', process.env.PERSONAL_ICS_URL]);
+  for (const [label, url] of seeds) {
+    await pool.query('INSERT INTO calendar_sources (label, ics_url) VALUES ($1, $2)', [label, url]);
+  }
+  await pool.query("INSERT INTO app_meta (key, value) VALUES ('legacy_calendar_seeded', 'true')");
+}
 
 async function migrate() {
   await Promise.all(Object.values(POOLS).map((p) => p.query(SCHEMA)));
+  await seedLegacyCalendarSources();
 }
 
 module.exports = { pool, poolJ, getPool, migrate };

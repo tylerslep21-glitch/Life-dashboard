@@ -263,16 +263,20 @@ async function getJSON(url) {
   return res.json();
 }
 
+// Populated by loadCalendar() below - kept around so the "Calendars" manage
+// modal doesn't need its own separate fetch just to list what's connected.
+var currentCalendarSources = [];
+
 async function loadCalendar() {
   try {
     var data = await getJSON('/api/calendar');
+    currentCalendarSources = data.sources || [];
     var stamp = document.getElementById('calendar-sync-stamp');
     stamp.textContent = 'Synced ' + new Date(data.fetched_at).toLocaleString();
 
     var windowEnd = Date.now() + 10 * 24 * 60 * 60 * 1000; // next 10 days
-    var all = []
-      .concat((data.canvas.events || []).map(function (e) { return Object.assign({}, e, { source: 'Canvas' }); }))
-      .concat((data.personal.events || []).map(function (e) { return Object.assign({}, e, { source: 'Personal' }); }))
+    var all = currentCalendarSources
+      .flatMap(function (s) { return (s.events || []).map(function (e) { return Object.assign({}, e, { source: s.label }); }); })
       .filter(function (e) { return new Date(e.start).getTime() <= windowEnd; })
       .sort(function (a, b) { return new Date(a.start) - new Date(b.start); })
       .slice(0, 15); // whichever limit (10 days or 15 items) hits first
@@ -281,9 +285,12 @@ async function loadCalendar() {
     var emptyWrap = document.getElementById('calendar-empty-states');
     emptyWrap.innerHTML = '';
 
-    if (all.length === 0) {
+    if (!currentCalendarSources.length) {
       list.innerHTML = '';
-      emptyWrap.innerHTML = '<div class="empty-state">Nothing scheduled on either calendar</div>';
+      emptyWrap.innerHTML = '<div class="empty-state">No calendars connected yet - tap + to add one</div>';
+    } else if (all.length === 0) {
+      list.innerHTML = '';
+      emptyWrap.innerHTML = '<div class="empty-state">Nothing scheduled on any calendar</div>';
     } else {
       list.innerHTML = all.map(function (e) {
         var d = new Date(e.start);
@@ -298,12 +305,73 @@ async function loadCalendar() {
       }).join('');
     }
 
-    if (data.canvas.error) emptyWrap.innerHTML += '<div class="empty-state">Canvas: ' + data.canvas.error + '</div>';
-    if (data.personal.error) emptyWrap.innerHTML += '<div class="empty-state">Personal: ' + data.personal.error + '</div>';
+    currentCalendarSources.forEach(function (s) {
+      if (s.error) emptyWrap.innerHTML += '<div class="empty-state">' + s.label + ': ' + s.error + '</div>';
+    });
   } catch (err) {
     document.getElementById('calendar-sync-stamp').textContent = 'Sync failed: ' + err.message;
   }
 }
+
+function renderCalendarManageList() {
+  var el = document.getElementById('calendar-manage-list');
+  if (!currentCalendarSources.length) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No calendars connected yet.</p>';
+    return;
+  }
+  el.innerHTML = currentCalendarSources.map(function (s) {
+    return (
+      '<div class="sub-row" data-id="' + s.id + '">' +
+        '<span class="sub-name">' + s.label + (s.error ? ' &mdash; failing' : '') + '</span>' +
+        '<button type="button" class="sub-remove" data-id="' + s.id + '" aria-label="Delete">&times;</button>' +
+      '</div>'
+    );
+  }).join('');
+  el.querySelectorAll('.sub-remove').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      await fetch('/api/calendar/sources/' + btn.dataset.id, { method: 'DELETE' });
+      await loadCalendar();
+      renderCalendarManageList();
+    });
+  });
+}
+
+var calendarOverlay = document.getElementById('calendar-modal-overlay');
+document.getElementById('open-calendar-form').addEventListener('click', function () {
+  document.getElementById('calendar-form-status').textContent = '';
+  renderCalendarManageList();
+  calendarOverlay.classList.add('open');
+});
+document.getElementById('cancel-calendar-form').addEventListener('click', function () {
+  calendarOverlay.classList.remove('open');
+});
+calendarOverlay.addEventListener('click', function (e) { if (e.target === calendarOverlay) calendarOverlay.classList.remove('open'); });
+
+document.getElementById('calendar-add-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('calendar-form-status');
+  var label = document.getElementById('calendar-label-input').value.trim();
+  var icsUrl = document.getElementById('calendar-url-input').value.trim();
+  statusEl.textContent = 'Connecting&hellip;';
+  statusEl.className = 'form-status';
+  try {
+    var res = await fetch('/api/calendar/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label, ics_url: icsUrl }),
+    });
+    var body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Server returned ' + res.status);
+    statusEl.textContent = 'Connected.';
+    statusEl.className = 'form-status ok';
+    document.getElementById('calendar-add-form').reset();
+    await loadCalendar();
+    renderCalendarManageList();
+  } catch (err) {
+    statusEl.textContent = 'Failed to connect: ' + err.message;
+    statusEl.className = 'form-status error';
+  }
+});
 
 var currentSubscriptions = [];
 

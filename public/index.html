@@ -42,16 +42,16 @@
   <div class="modules">
 
     <section class="module span-2">
-      <div class="module-head"><h2>Calendar</h2></div>
+      <div class="module-head">
+        <h2>Calendar</h2>
+        <button type="button" class="icon-btn" id="open-calendar-form" aria-label="Add a calendar">+</button>
+      </div>
       <p class="sync-stamp" id="calendar-sync-stamp">Loading&hellip;</p>
       <ul class="event-list" id="calendar-events"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
       <div id="calendar-empty-states"></div>
       <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-        <a class="btn btn-primary" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
-          Canvas &nbsp;&rarr;
-        </a>
         <a class="btn btn-ghost" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">
-          Personal &nbsp;&rarr;
+          Open Google Calendar &nbsp;&rarr;
         </a>
       </div>
     </section>
@@ -283,6 +283,29 @@
       <button type="button" class="btn btn-outline-only" id="cancel-transactions-form">Close</button>
     </div>
     <div class="form-status" id="transactions-form-status"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="calendar-modal-overlay">
+  <div class="modal">
+    <h2>Calendars</h2>
+    <div id="calendar-manage-list"></div>
+
+    <form id="calendar-add-form">
+      <div class="field-group">
+        <label for="calendar-label-input">Name</label>
+        <input type="text" id="calendar-label-input" placeholder="e.g. Bright Space" required>
+      </div>
+      <div class="field-group">
+        <label for="calendar-url-input">Calendar link (ICS URL)</label>
+        <input type="url" id="calendar-url-input" placeholder="https://...ics" required>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-calendar-form">Close</button>
+        <button type="submit" class="btn btn-primary">Connect</button>
+      </div>
+      <div class="form-status" id="calendar-form-status"></div>
+    </form>
   </div>
 </div>
 
