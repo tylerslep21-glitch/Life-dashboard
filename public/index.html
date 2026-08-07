@@ -24,6 +24,7 @@
 <div class="shell">
   <header class="masthead">
     <button type="button" class="icon-btn" id="open-signin-settings" aria-label="Sign-in settings">&#128272;</button>
+    <button type="button" class="icon-btn" id="open-customize-dashboard" aria-label="Customize dashboard">&#9881;&#65039;</button>
     <button type="button" class="icon-btn" id="toggle-retro" aria-label="Toggle retro theme">&#128126;</button>
     <select id="retro-theme-select" aria-label="Retro theme" style="margin-left: 0.3rem; font-size: 0.78rem; padding: 0.15rem 0.3rem;">
       <option value="tropical">&#127796; Tropical</option>
@@ -41,7 +42,7 @@
 
   <div class="modules">
 
-    <section class="module span-2">
+    <section class="module span-2" data-widget-id="calendar">
       <div class="module-head">
         <h2>Calendar</h2>
         <button type="button" class="icon-btn" id="open-calendar-form" aria-label="Add a calendar">+</button>
@@ -52,7 +53,7 @@
       <div id="calendar-quick-links" style="display: flex; gap: 0.6rem; flex-wrap: wrap;"></div>
     </section>
 
-    <section class="module">
+    <section class="module" data-widget-id="subscriptions">
       <div class="module-head">
         <h2>Subscriptions</h2>
         <button type="button" class="icon-btn" id="open-subscriptions-form" aria-label="Edit subscriptions">+</button>
@@ -60,7 +61,7 @@
       <ul class="breakdown" id="subscriptions-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
-    <section class="module">
+    <section class="module" data-widget-id="exams">
       <div class="module-head">
         <h2>Exams / Big Projects</h2>
         <button type="button" class="icon-btn" id="open-exams-form" aria-label="Edit exams/projects">+</button>
@@ -68,7 +69,7 @@
       <ul class="event-list" id="exams-list"><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
-    <section class="module countdown-card" id="countdown-card">
+    <section class="module countdown-card" id="countdown-card" data-widget-id="countdowns">
       <div class="countdown-photo" id="countdown-photo">
         <div class="countdown-photo-top">
           <span class="eyebrow" style="color: #fff; opacity: 0.85;">Countdowns</span>
@@ -82,18 +83,18 @@
       <div class="countdown-secondary" id="countdown-secondary"><span class="skel skel-row" style="height:1.6rem;"></span></div>
     </section>
 
-    <section class="module" data-widget="agent-tracker">
+    <section class="module" data-widget-id="agent-tracker">
       <div class="module-head"><h2>AI Agent Tracker</h2></div>
       <ul class="breakdown" id="agent-tracker-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
     </section>
 
-    <section class="module" data-widget="railway">
+    <section class="module" data-widget-id="railway">
       <div class="module-head"><h2>Railway</h2></div>
       <ul class="breakdown" id="railway-status-list"><li class="skel skel-row"></li><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
       <p class="sync-stamp" id="railway-usage-line">Loading&hellip;</p>
     </section>
 
-    <section class="module span-3">
+    <section class="module span-3" data-widget-id="todo">
       <div class="module-head">
         <h2>To-Do</h2>
         <button type="button" class="icon-btn" id="open-todo-form" aria-label="Add a to-do">+</button>
@@ -103,7 +104,7 @@
 
     <div class="section-divider"></div>
 
-    <section class="module span-3 week-nav-box">
+    <section class="module span-3 week-nav-box" data-widget-id="week-nav">
       <div class="week-nav">
         <button type="button" class="week-arrow" id="week-prev" aria-label="Previous week">&larr;</button>
         <span class="week-label" id="week-label">&mdash;</span>
@@ -111,7 +112,7 @@
       </div>
     </section>
 
-    <section class="module span-3">
+    <section class="module span-3" data-widget-id="finance-stats">
       <div class="stat-grid" style="margin-bottom: 0;">
         <div class="stat">
           <span class="stat-label">Net worth</span>
@@ -128,7 +129,7 @@
       </div>
     </section>
 
-    <section class="module span-2 viz-root">
+    <section class="module span-2 viz-root" data-widget-id="net-worth-breakdown">
       <div class="module-head"><h2>Net worth breakdown</h2></div>
       <div class="legend">
         <span class="legend-item"><span class="legend-swatch" style="background: var(--series-asset);"></span>Asset</span>
@@ -137,7 +138,7 @@
       <div class="bar-chart" id="networth-bars"><span class="skel skel-block" style="height:120px;"></span></div>
     </section>
 
-    <section class="module viz-root">
+    <section class="module viz-root" data-widget-id="spending-by-category">
       <div class="module-head">
         <h2>Spending by category</h2>
         <button type="button" class="icon-btn" id="open-transactions-form" aria-label="Edit transactions">+</button>
@@ -145,7 +146,7 @@
       <div class="bar-chart" id="spending-bars"><span class="skel skel-block" style="height:120px;"></span></div>
     </section>
 
-    <section class="module viz-root">
+    <section class="module viz-root" data-widget-id="bank">
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">BANK &middot; 1YR</span>
       </div>
@@ -160,7 +161,7 @@
       <div class="x-axis" id="xaxis-bank"></div>
     </section>
 
-    <section class="module viz-root" data-widget="robinhood">
+    <section class="module viz-root" data-widget-id="robinhood-agentic">
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">ROBINHOOD &middot; AGENTIC</span>
       </div>
@@ -175,7 +176,7 @@
       <div class="x-axis" id="xaxis-agentic"></div>
     </section>
 
-    <section class="module viz-root" data-widget="robinhood">
+    <section class="module viz-root" data-widget-id="robinhood-individual">
       <div class="spark-head" style="margin-bottom: 0.1rem;">
         <span class="name" style="font-size: 0.72rem;">ROBINHOOD &middot; INDIVIDUAL</span>
       </div>
@@ -190,7 +191,7 @@
       <div class="x-axis" id="xaxis-individual"></div>
     </section>
 
-    <section class="module span-3">
+    <section class="module span-3" data-widget-id="status-row">
       <div class="status-row" id="status-row">Loading&hellip;</div>
     </section>
 
@@ -379,6 +380,20 @@
       </div>
       <div class="form-status" id="todo-form-status"></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="customize-modal-overlay">
+  <div class="modal">
+    <h2>Customize dashboard</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Drag to reorder. Uncheck to hide a widget.
+    </p>
+    <ul class="todo-list" id="customize-widget-list"></ul>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="cancel-customize-form">Close</button>
+    </div>
+    <p class="form-status" id="customize-status"></p>
   </div>
 </div>
 

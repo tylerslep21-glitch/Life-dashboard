@@ -1,7 +1,20 @@
 const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
-const { checkPassword } = require('../lib/auth');
+const { verifyPassword } = require('../lib/auth');
+
+// This connector exists to let Claude push Robinhood/agent-status data (see
+// lib/mcp-server.js), which is deliberately tied to the 'tslep' account only
+// (see routes/robinhood.js) - so authorizing a new MCP client is gated by
+// tslep's password specifically, not "any account on this dashboard".
+async function checkPassword(password) {
+  const { rows } = await pool.query(
+    "SELECT password_hash, password_salt FROM users WHERE username = 'tslep'"
+  );
+  const user = rows[0];
+  if (!user) return false;
+  return verifyPassword(password, user.password_hash, user.password_salt);
+}
 
 const router = express.Router();
 
@@ -109,7 +122,7 @@ router.get('/oauth/authorize', async (req, res) => {
 
 router.post('/oauth/authorize', express.urlencoded({ extended: false }), async (req, res) => {
   const { client_id, redirect_uri, state, code_challenge, code_challenge_method, password } = req.body || {};
-  if (!checkPassword(password)) {
+  if (!(await checkPassword(password))) {
     const html = renderAuthorizeForm({ error: 'Incorrect password.' })
       .replace('__CLIENT_ID__', client_id || '')
       .replace('__REDIRECT_URI__', redirect_uri || '')

@@ -1,15 +1,14 @@
 const express = require('express');
 const path = require('path');
-const { migrate, getPool } = require('./db');
+const { migrate, pool } = require('./db');
 const { hasValidSession, hasValidBasicAuth } = require('./lib/auth');
 const { handleMcpRequest } = require('./lib/mcp-server');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DASHBOARD_PASSWORD = process.env.DASHBOARD_PASSWORD;
 
-if (!DASHBOARD_PASSWORD) {
-  console.error('FATAL: DASHBOARD_PASSWORD env var is not set. Refusing to start unprotected.');
+if (!process.env.SESSION_SECRET) {
+  console.error('FATAL: SESSION_SECRET env var is not set. Refusing to start unprotected.');
   process.exit(1);
 }
 
@@ -46,29 +45,29 @@ const PUBLIC_FILES = new Set([
   '/icon-512.png',
 ]);
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (PUBLIC_FILES.has(req.path)) return next();
-  // hasValidSession/hasValidBasicAuth now return the matched tenant string (or
-  // null) rather than a plain boolean - attach it plus that tenant's own DB
-  // pool to the request, so every route downstream reads/writes the right
-  // tenant's data without needing to know about tenants itself.
-  const sessionTenant = hasValidSession(req);
-  if (sessionTenant) {
-    req.tenant = sessionTenant;
-    req.db = getPool(sessionTenant);
+  // hasValidSession/hasValidBasicAuth return the authenticated user's id (or
+  // null) - attach it plus the single shared DB pool to the request, so every
+  // route downstream scopes its own queries by req.userId.
+  const sessionUserId = hasValidSession(req);
+  if (sessionUserId) {
+    req.userId = sessionUserId;
+    req.db = pool;
     return next();
   }
   // API calls always get a plain 401 the client can react to (a fetch() with no
   // Accept header - which is the common case - can't be reliably told apart from a
   // page navigation by Accept alone, so this keys off path instead). They also accept
-  // the old Basic Auth password as an alternate credential - scripted callers (e.g.
-  // Claude pushing a Robinhood snapshot from a chat session) never got a session cookie
-  // and shouldn't have to.
+  // Basic Auth as an alternate credential - scripted callers (e.g. Claude pushing a
+  // Robinhood snapshot from a chat session) never got a session cookie and shouldn't
+  // have to. Basic Auth only ever authenticates as the 'tslep' account (see
+  // lib/auth.js) - that's intentional, not a bug.
   if (req.path.startsWith('/api/')) {
-    const basicTenant = hasValidBasicAuth(req);
-    if (basicTenant) {
-      req.tenant = basicTenant;
-      req.db = getPool(basicTenant);
+    const basicUserId = await hasValidBasicAuth(req, pool);
+    if (basicUserId) {
+      req.userId = basicUserId;
+      req.db = pool;
       return next();
     }
     return res.status(401).json({ error: 'Not signed in' });
@@ -96,18 +95,7 @@ app.use('/api/agent-tracker', require('./routes/agent-tracker'));
 app.use('/api/railway', require('./routes/railway'));
 app.use('/api/todos', require('./routes/todos'));
 app.use('/api/ticker', require('./routes/ticker'));
-
-// Lets a second tenant sharing this same app (see db.js/lib/auth.js) hide
-// widgets that don't apply to it - e.g. a dashboard for someone without a
-// Robinhood account or without this project's own Railway/AI-agent infra -
-// without forking the code. DISABLED_WIDGETS is the default tenant's list;
-// DISABLED_WIDGETS_J is tenant j's.
-app.get('/api/config', (req, res) => {
-  const envVar = req.tenant === 'j' ? 'DISABLED_WIDGETS_J' : 'DISABLED_WIDGETS';
-  const disabledWidgets = (process.env[envVar] || '')
-    .split(',').map((s) => s.trim()).filter(Boolean);
-  res.json({ disabledWidgets });
-});
+app.use('/api/me', require('./routes/me'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

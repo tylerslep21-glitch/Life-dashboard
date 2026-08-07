@@ -34,6 +34,20 @@ function getPool(tenant) {
 }
 
 const SCHEMA = `
+-- Real user accounts (replacing the old two-hardcoded-tenant model). Password
+-- hashing is scrypt via Node's built-in crypto - no new dependency needed.
+-- widget_layout is nullable: a user who's never opened "Customize dashboard"
+-- has no saved layout yet, and every widget defaults to enabled/append-order
+-- (see the frontend's applyWidgetLayout()) rather than needing a row here.
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  widget_layout JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS finance_entries (
   id SERIAL PRIMARY KEY,
   logged_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -103,6 +117,20 @@ ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEF
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS expected_interval_hours NUMERIC;
 ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
 
+-- Multi-user migration: every per-tenant table gets a user_id column, added
+-- nullable so this runs safely against existing production data (the
+-- one-time scripts/migrate-to-users.js backfills it and only then sets
+-- NOT NULL - see that script for why it's not done here automatically).
+ALTER TABLE finance_entries ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE robinhood_snapshots ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE exams ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE calendar_sources ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+ALTER TABLE webauthn_credentials ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+
 -- Now Playing feature was scrapped (2026-07-28) - iOS background execution limits
 -- meant it could never be truly real-time, and that was the whole point. Dropping
 -- the unused table rather than leaving dead schema around.
@@ -125,9 +153,10 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
 
 -- Minimal OAuth 2.1 + dynamic client registration (RFC 7591) so the MCP endpoint at
 -- /mcp can be added as a custom connector in claude.ai - its connector setup performs
--- real OAuth discovery/registration, not just "hit this URL with a secret". Single-user
--- app: the /oauth/authorize step is gated by the same DASHBOARD_PASSWORD as everything
--- else, not a separate account system. Authorization codes are short-lived and kept
+-- real OAuth discovery/registration, not just "hit this URL with a secret". Not scoped
+-- per-user: the /oauth/authorize step is gated by the 'tslep' account's password
+-- specifically (see routes/oauth.js), since the MCP push path is tied to that account
+-- only. Authorization codes are short-lived and kept
 -- in-memory only (the whole code->token exchange happens within one interactive OAuth
 -- dance, a mid-flight restart just means retrying); issued access tokens are persisted
 -- here since they need to survive redeploys.

@@ -10,8 +10,9 @@ router.get('/', async (req, res) => {
   const onlyRecurring = req.query.recurring === 'true';
   const { rows } = await req.db.query(
     onlyRecurring
-      ? 'SELECT * FROM agent_status WHERE recurring = true ORDER BY agent_name ASC'
-      : 'SELECT * FROM agent_status ORDER BY agent_name ASC'
+      ? 'SELECT * FROM agent_status WHERE user_id = $1 AND recurring = true ORDER BY agent_name ASC'
+      : 'SELECT * FROM agent_status WHERE user_id = $1 ORDER BY agent_name ASC',
+    [req.userId]
   );
   res.json(rows);
 });
@@ -22,9 +23,9 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'agent_name, status_summary are required' });
   }
   const { rows } = await req.db.query(
-    `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, expected_interval_hours, updated_at)
-     VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), $6, now())
-     ON CONFLICT (agent_name) DO UPDATE
+    `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, expected_interval_hours, updated_at, user_id)
+     VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), $6, now(), $7)
+     ON CONFLICT (user_id, agent_name) DO UPDATE
        SET status_summary = EXCLUDED.status_summary,
            action_taken = EXCLUDED.action_taken,
            recurring = EXCLUDED.recurring,
@@ -34,13 +35,13 @@ router.post('/', async (req, res) => {
            expected_interval_hours = COALESCE(EXCLUDED.expected_interval_hours, agent_status.expected_interval_hours),
            updated_at = now()
      RETURNING *`,
-    [agent_name, status_summary, action_taken || null, recurring, last_run_at || null, expected_interval_hours || null]
+    [agent_name, status_summary, action_taken || null, recurring, last_run_at || null, expected_interval_hours || null, req.userId]
   );
   res.status(201).json(rows[0]);
 });
 
 router.delete('/:agentName', async (req, res) => {
-  await req.db.query('DELETE FROM agent_status WHERE agent_name = $1', [req.params.agentName]);
+  await req.db.query('DELETE FROM agent_status WHERE agent_name = $1 AND user_id = $2', [req.params.agentName, req.userId]);
   res.status(204).end();
 });
 

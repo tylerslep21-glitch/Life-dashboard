@@ -16,7 +16,8 @@ function weekStart(date) {
 
 router.get('/latest', async (req, res) => {
   const { rows } = await req.db.query(
-    'SELECT * FROM finance_entries ORDER BY logged_at DESC LIMIT 1'
+    'SELECT * FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1',
+    [req.userId]
   );
   if (rows.length === 0) return res.json(null);
   res.json(rows[0]);
@@ -30,9 +31,9 @@ router.get('/history', async (req, res) => {
   // once there are more than `limit` rows total.
   const { rows } = await req.db.query(
     `SELECT * FROM (
-       SELECT * FROM finance_entries ORDER BY logged_at DESC LIMIT $1
+       SELECT * FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT $2
      ) recent ORDER BY logged_at ASC`,
-    [limit]
+    [req.userId, limit]
   );
   res.json(rows);
 });
@@ -50,8 +51,8 @@ router.get('/week', async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 7);
 
   const { rows } = await req.db.query(
-    'SELECT * FROM finance_entries WHERE logged_at >= $1 AND logged_at < $2 ORDER BY logged_at ASC',
-    [start.toISOString(), end.toISOString()]
+    'SELECT * FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
+    [req.userId, start.toISOString(), end.toISOString()]
   );
 
   if (rows.length === 0) {
@@ -83,8 +84,8 @@ router.get('/entries-in-week', async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 7);
 
   const { rows } = await req.db.query(
-    'SELECT id, logged_at, transactions FROM finance_entries WHERE logged_at >= $1 AND logged_at < $2 ORDER BY logged_at ASC',
-    [start.toISOString(), end.toISOString()]
+    'SELECT id, logged_at, transactions FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
+    [req.userId, start.toISOString(), end.toISOString()]
   );
   res.json(rows);
 });
@@ -97,8 +98,8 @@ router.patch('/:id/transactions', async (req, res) => {
     return res.status(400).json({ error: 'transactions (array) is required' });
   }
   const { rows } = await req.db.query(
-    'UPDATE finance_entries SET transactions = $1 WHERE id = $2 RETURNING *',
-    [JSON.stringify(transactions), req.params.id]
+    'UPDATE finance_entries SET transactions = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+    [JSON.stringify(transactions), req.params.id, req.userId]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'not found' });
   res.json(rows[0]);
@@ -106,7 +107,7 @@ router.patch('/:id/transactions', async (req, res) => {
 
 // Earliest week that has any data, so the frontend can disable "prev" past it.
 router.get('/earliest-week', async (req, res) => {
-  const { rows } = await req.db.query('SELECT MIN(logged_at) AS min_date FROM finance_entries');
+  const { rows } = await req.db.query('SELECT MIN(logged_at) AS min_date FROM finance_entries WHERE user_id = $1', [req.userId]);
   if (!rows[0].min_date) return res.json(null);
   res.json({ week_of: weekStart(new Date(rows[0].min_date)).toISOString().slice(0, 10) });
 });
@@ -130,9 +131,9 @@ router.post('/', async (req, res) => {
   }
 
   const { rows } = await req.db.query(
-    `INSERT INTO finance_entries (bank_balance, cards, income, transactions, logged_at)
-     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-    [bank_balance, JSON.stringify(safeCards), safeIncome, JSON.stringify(safeTransactions), loggedAt.toISOString()]
+    `INSERT INTO finance_entries (bank_balance, cards, income, transactions, logged_at, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+    [bank_balance, JSON.stringify(safeCards), safeIncome, JSON.stringify(safeTransactions), loggedAt.toISOString(), req.userId]
   );
   res.status(201).json(rows[0]);
 });

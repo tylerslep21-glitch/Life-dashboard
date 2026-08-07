@@ -5,13 +5,16 @@ const {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } = require('@simplewebauthn/server');
-const { getPool } = require('../db');
-const { setSessionCookie, clearSessionCookie, hasValidSession, identifyTenant } = require('../lib/auth');
+const { pool } = require('../db');
+const { setSessionCookie, clearSessionCookie, hasValidSession, hashPassword, verifyPassword } = require('../lib/auth');
 
 const router = express.Router();
 
-// Single in-flight ceremony at a time is fine - one shared dashboard, not a multi-user
-// service. A fresh options call always overwrites whatever challenge preceded it.
+const INVITE_CODE = process.env.INVITE_CODE;
+
+// Single in-flight ceremony at a time is fine - two people, not a real
+// multi-tenant service. A fresh options call always overwrites whatever
+// challenge preceded it.
 let pendingRegistrationChallenge = null;
 let pendingAuthChallenge = null;
 
@@ -23,25 +26,56 @@ function getOrigin(req) {
 }
 
 // This whole router is mounted before the global session-gate middleware in
-// server.js (login has to be reachable pre-auth), so unlike the rest of the
-// app it can't rely on that middleware to have already set req.tenant/req.db -
-// each handler below resolves its own tenant from whatever signal it has
-// (password, existing session cookie, or - for WebAuthn sign-in, which by
-// definition happens before any tenant is known - by checking every tenant's
-// own credentials table for a match).
-const TENANTS = ['default', 'j'].filter((t) => getPool(t));
+// server.js (login/signup have to be reachable pre-auth), so unlike the rest
+// of the app it can't rely on that middleware to have already set req.userId.
 
 router.get('/session', (req, res) => {
   res.json({ authenticated: !!hasValidSession(req) });
 });
 
-router.post('/login', (req, res) => {
-  const { password } = req.body || {};
-  const tenant = identifyTenant(password);
-  if (!tenant) {
-    return res.status(401).json({ error: 'Incorrect password' });
+router.post('/signup', async (req, res) => {
+  const { username, password, invite_code } = req.body || {};
+  if (!INVITE_CODE) {
+    return res.status(500).json({ error: 'Signup is not configured' });
   }
-  setSessionCookie(res, tenant);
+  if (invite_code !== INVITE_CODE) {
+    return res.status(403).json({ error: 'Invalid invite code' });
+  }
+  if (typeof username !== 'string' || !/^[a-z0-9_]{3,32}$/i.test(username)) {
+    return res.status(400).json({ error: 'Username must be 3-32 letters, numbers, or underscores' });
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  }
+
+  const { rows: existing } = await pool.query('SELECT 1 FROM users WHERE username = $1', [username.toLowerCase()]);
+  if (existing.length) {
+    return res.status(409).json({ error: 'That username is taken' });
+  }
+
+  const { hash, salt } = hashPassword(password);
+  const { rows } = await pool.query(
+    'INSERT INTO users (username, password_hash, password_salt) VALUES ($1, $2, $3) RETURNING id',
+    [username.toLowerCase(), hash, salt]
+  );
+  setSessionCookie(res, rows[0].id);
+  res.status(201).json({ ok: true });
+});
+
+router.post('/login', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ error: 'Incorrect username or password' });
+  }
+  const { rows } = await pool.query(
+    'SELECT id, password_hash, password_salt FROM users WHERE username = $1',
+    [username.toLowerCase()]
+  );
+  const user = rows[0];
+  if (!user || !verifyPassword(password, user.password_hash, user.password_salt)) {
+    return res.status(401).json({ error: 'Incorrect username or password' });
+  }
+  setSessionCookie(res, user.id);
   res.json({ ok: true });
 });
 
@@ -54,13 +88,14 @@ router.post('/logout', (req, res) => {
 // with the password once and then bind a device from inside the app. -----------------
 
 router.get('/webauthn/registration-options', async (req, res) => {
-  const tenant = hasValidSession(req);
-  if (!tenant) return res.status(401).json({ error: 'Not signed in' });
-  const { rows } = await getPool(tenant).query('SELECT credential_id FROM webauthn_credentials');
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
+  const { rows: userRows } = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
+  const { rows } = await pool.query('SELECT credential_id FROM webauthn_credentials WHERE user_id = $1', [userId]);
   const options = await generateRegistrationOptions({
     rpName: 'Life Dashboard',
     rpID: getRpID(req),
-    userName: 'dashboard',
+    userName: userRows[0] ? userRows[0].username : 'dashboard',
     attestationType: 'none',
     excludeCredentials: rows.map((r) => ({ id: r.credential_id })),
     authenticatorSelection: {
@@ -74,8 +109,8 @@ router.get('/webauthn/registration-options', async (req, res) => {
 });
 
 router.post('/webauthn/registration-verify', async (req, res) => {
-  const tenant = hasValidSession(req);
-  if (!tenant) return res.status(401).json({ error: 'Not signed in' });
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
   if (!pendingRegistrationChallenge) return res.status(400).json({ error: 'No registration in progress' });
 
   let verification;
@@ -95,37 +130,38 @@ router.post('/webauthn/registration-verify', async (req, res) => {
   const { credential } = verification.registrationInfo;
   const publicKeyB64 = Buffer.from(credential.publicKey).toString('base64url');
   const deviceLabel = req.body.deviceLabel || 'Unnamed device';
-  await getPool(tenant).query(
-    `INSERT INTO webauthn_credentials (credential_id, public_key, counter, device_label)
-     VALUES ($1, $2, $3, $4)`,
-    [credential.id, publicKeyB64, credential.counter, deviceLabel]
+  await pool.query(
+    `INSERT INTO webauthn_credentials (credential_id, public_key, counter, device_label, user_id)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [credential.id, publicKeyB64, credential.counter, deviceLabel, userId]
   );
   res.json({ ok: true });
 });
 
 router.get('/webauthn/credentials', async (req, res) => {
-  const tenant = hasValidSession(req);
-  if (!tenant) return res.status(401).json({ error: 'Not signed in' });
-  const { rows } = await getPool(tenant).query(
-    'SELECT id, device_label, created_at, last_used_at FROM webauthn_credentials ORDER BY created_at DESC'
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
+  const { rows } = await pool.query(
+    'SELECT id, device_label, created_at, last_used_at FROM webauthn_credentials WHERE user_id = $1 ORDER BY created_at DESC',
+    [userId]
   );
   res.json(rows);
 });
 
 router.delete('/webauthn/credentials/:id', async (req, res) => {
-  const tenant = hasValidSession(req);
-  if (!tenant) return res.status(401).json({ error: 'Not signed in' });
-  await getPool(tenant).query('DELETE FROM webauthn_credentials WHERE id = $1', [req.params.id]);
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
+  await pool.query('DELETE FROM webauthn_credentials WHERE id = $1 AND user_id = $2', [req.params.id, userId]);
   res.status(204).end();
 });
 
 // --- Touch ID / Face ID sign-in - deliberately public (no session required), since the
-// whole point is signing in without one yet. No tenant is known going in, so both steps
-// below check every tenant's own credentials table and use whichever one matches. -------
+// whole point is signing in without one yet. No user is known going in, so this checks
+// the single shared credentials table (scoped by whichever user_id the matched row
+// carries) rather than looping per-tenant databases like the old two-tenant model did. --
 
 router.get('/webauthn/authentication-options', async (req, res) => {
-  const perTenantRows = await Promise.all(TENANTS.map((t) => getPool(t).query('SELECT credential_id FROM webauthn_credentials')));
-  const rows = perTenantRows.flatMap((r) => r.rows);
+  const { rows } = await pool.query('SELECT credential_id FROM webauthn_credentials');
   if (!rows.length) return res.status(404).json({ error: 'No Touch ID / Face ID device registered yet' });
   const options = await generateAuthenticationOptions({
     rpID: getRpID(req),
@@ -139,16 +175,8 @@ router.get('/webauthn/authentication-options', async (req, res) => {
 router.post('/webauthn/authentication-verify', async (req, res) => {
   if (!pendingAuthChallenge) return res.status(400).json({ error: 'No authentication in progress' });
 
-  let tenant = null;
-  let stored = null;
-  for (const t of TENANTS) {
-    const { rows } = await getPool(t).query('SELECT * FROM webauthn_credentials WHERE credential_id = $1', [req.body.id]);
-    if (rows[0]) {
-      tenant = t;
-      stored = rows[0];
-      break;
-    }
-  }
+  const { rows } = await pool.query('SELECT * FROM webauthn_credentials WHERE credential_id = $1', [req.body.id]);
+  const stored = rows[0];
   if (!stored) return res.status(400).json({ error: 'Unrecognized credential' });
 
   let verification;
@@ -170,11 +198,11 @@ router.post('/webauthn/authentication-verify', async (req, res) => {
   pendingAuthChallenge = null;
   if (!verification.verified) return res.status(400).json({ error: 'Verification failed' });
 
-  await getPool(tenant).query('UPDATE webauthn_credentials SET counter = $1, last_used_at = now() WHERE id = $2', [
+  await pool.query('UPDATE webauthn_credentials SET counter = $1, last_used_at = now() WHERE id = $2', [
     verification.authenticationInfo.newCounter,
     stored.id,
   ]);
-  setSessionCookie(res, tenant);
+  setSessionCookie(res, stored.user_id);
   res.json({ ok: true });
 });
 

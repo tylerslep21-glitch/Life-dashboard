@@ -23,13 +23,16 @@ async function fetchEvents(source) {
 }
 
 router.get('/', async (req, res) => {
-  const { rows: sources } = await req.db.query('SELECT * FROM calendar_sources ORDER BY id ASC');
+  const { rows: sources } = await req.db.query('SELECT * FROM calendar_sources WHERE user_id = $1 ORDER BY id ASC', [req.userId]);
   const results = await Promise.all(sources.map(fetchEvents));
   res.json({ fetched_at: new Date().toISOString(), sources: results });
 });
 
 router.get('/sources', async (req, res) => {
-  const { rows } = await req.db.query('SELECT id, label, ics_url, created_at FROM calendar_sources ORDER BY id ASC');
+  const { rows } = await req.db.query(
+    'SELECT id, label, ics_url, created_at FROM calendar_sources WHERE user_id = $1 ORDER BY id ASC',
+    [req.userId]
+  );
   res.json(rows);
 });
 
@@ -46,14 +49,14 @@ router.post('/sources', async (req, res) => {
     return res.status(400).json({ error: 'Could not load that calendar: ' + err.message });
   }
   const { rows } = await req.db.query(
-    'INSERT INTO calendar_sources (label, ics_url) VALUES ($1, $2) RETURNING *',
-    [label, ics_url]
+    'INSERT INTO calendar_sources (label, ics_url, user_id) VALUES ($1, $2, $3) RETURNING *',
+    [label, ics_url, req.userId]
   );
   res.status(201).json(rows[0]);
 });
 
 router.delete('/sources/:id', async (req, res) => {
-  await req.db.query('DELETE FROM calendar_sources WHERE id = $1', [req.params.id]);
+  await req.db.query('DELETE FROM calendar_sources WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
   res.status(204).end();
 });
 

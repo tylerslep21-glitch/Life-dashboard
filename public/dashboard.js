@@ -567,7 +567,7 @@ async function loadFinanceAndRobinhood() {
   } catch (err) { earliestWeekStart = currentWeekStart; }
 
   renderBankWidget();
-  if (widgetEnabled('robinhood')) renderRobinhoodWidgets();
+  renderRobinhoodWidgets();
   await loadWeekView();
 }
 
@@ -1723,25 +1723,131 @@ document.querySelectorAll('.module').forEach(function (el) {
 
 renderChristmasLights();
 
-// ---- per-deployment widget config ----
-// Lets a second deployment of this same codebase hide widgets that don't
-// apply to it (see /api/config in server.js). Sections carry
-// data-widget="..." attributes for this to target.
-var disabledWidgets = [];
-async function loadConfig() {
+// ---- self-service widget visibility + reorder ("Customize dashboard") ----
+// Canonical list of every data-widget-id in index.html. New widgets just get
+// added here + a data-widget-id attribute - a user who never opens the
+// customize modal still sees them (missing-from-saved-layout defaults to
+// enabled, appended at the end - see applyWidgetLayout()).
+var WIDGET_REGISTRY = [
+  { id: 'calendar', name: 'Calendar' },
+  { id: 'subscriptions', name: 'Subscriptions' },
+  { id: 'exams', name: 'Exams / Big Projects' },
+  { id: 'countdowns', name: 'Countdowns' },
+  { id: 'agent-tracker', name: 'AI Agent Tracker' },
+  { id: 'railway', name: 'Railway' },
+  { id: 'todo', name: 'To-Do' },
+  { id: 'week-nav', name: 'Week navigator' },
+  { id: 'finance-stats', name: 'Net worth / spent / income' },
+  { id: 'net-worth-breakdown', name: 'Net worth breakdown' },
+  { id: 'spending-by-category', name: 'Spending by category' },
+  { id: 'bank', name: 'Bank (1yr)' },
+  { id: 'robinhood-agentic', name: 'Robinhood · Agentic' },
+  { id: 'robinhood-individual', name: 'Robinhood · Individual' },
+  { id: 'status-row', name: 'Status row' },
+];
+
+var currentWidgetLayout = null; // [{id, enabled}, ...] as loaded from /api/me, in saved order
+
+// Merges the saved layout with the canonical registry: known ids keep their
+// saved position/enabled state, anything missing (new widget, or a fresh
+// account with no saved layout yet) is appended as enabled.
+function resolveWidgetLayout(saved) {
+  var savedList = Array.isArray(saved) ? saved : [];
+  var seen = {};
+  var resolved = savedList
+    .filter(function (w) { return WIDGET_REGISTRY.some(function (r) { return r.id === w.id; }); })
+    .map(function (w) { seen[w.id] = true; return { id: w.id, enabled: w.enabled !== false }; });
+  WIDGET_REGISTRY.forEach(function (r) {
+    if (!seen[r.id]) resolved.push({ id: r.id, enabled: true });
+  });
+  return resolved;
+}
+
+function applyWidgetLayout(layout) {
+  layout.forEach(function (w, i) {
+    var el = document.querySelector('[data-widget-id="' + w.id + '"]');
+    if (!el) return;
+    el.style.order = i;
+    el.style.display = w.enabled ? '' : 'none';
+  });
+}
+
+async function loadWidgetLayout() {
   try {
-    var cfg = await getJSON('/api/config');
-    disabledWidgets = cfg.disabledWidgets || [];
+    var me = await getJSON('/api/me');
+    currentWidgetLayout = resolveWidgetLayout(me.widget_layout);
   } catch (err) {
-    disabledWidgets = [];
+    currentWidgetLayout = resolveWidgetLayout(null);
   }
-  disabledWidgets.forEach(function (w) {
-    document.querySelectorAll('[data-widget="' + w + '"]').forEach(function (el) {
-      el.style.display = 'none';
+  applyWidgetLayout(currentWidgetLayout);
+}
+
+function renderCustomizeList() {
+  var list = document.getElementById('customize-widget-list');
+  var byId = {};
+  WIDGET_REGISTRY.forEach(function (r) { byId[r.id] = r.name; });
+  list.innerHTML = currentWidgetLayout.map(function (w) {
+    return (
+      '<li class="todo-row" draggable="true" data-id="' + w.id + '">' +
+        '<span class="todo-drag-handle">&#9776;</span>' +
+        '<input type="checkbox" class="todo-checkbox widget-visible-checkbox"' + (w.enabled ? ' checked' : '') + '>' +
+        '<span class="todo-text">' + (byId[w.id] || w.id) + '</span>' +
+      '</li>'
+    );
+  }).join('');
+
+  function persistLayoutFromDom() {
+    var order = Array.from(list.querySelectorAll('.todo-row')).map(function (row) {
+      var existing = currentWidgetLayout.find(function (w) { return w.id === row.dataset.id; });
+      return { id: row.dataset.id, enabled: row.querySelector('.widget-visible-checkbox').checked };
+    });
+    currentWidgetLayout = order;
+    applyWidgetLayout(currentWidgetLayout);
+    fetch('/api/me/widget-layout', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widget_layout: currentWidgetLayout }),
+    });
+  }
+
+  list.querySelectorAll('.widget-visible-checkbox').forEach(function (cb) {
+    cb.addEventListener('change', persistLayoutFromDom);
+  });
+
+  list.querySelectorAll('.todo-row').forEach(function (row) {
+    row.addEventListener('dragstart', function () {
+      row.classList.add('dragging');
+    });
+    row.addEventListener('dragend', function () {
+      row.classList.remove('dragging');
+    });
+    row.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      var dragging = list.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      var rect = row.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      list.insertBefore(dragging, before ? row : row.nextSibling);
+    });
+    row.addEventListener('drop', function (e) {
+      e.preventDefault();
+      persistLayoutFromDom();
     });
   });
 }
-function widgetEnabled(name) { return disabledWidgets.indexOf(name) === -1; }
+
+var customizeOverlay = document.getElementById('customize-modal-overlay');
+document.getElementById('open-customize-dashboard').addEventListener('click', function () {
+  document.getElementById('customize-status').textContent = '';
+  renderCustomizeList();
+  customizeOverlay.classList.add('open');
+});
+document.getElementById('cancel-customize-form').addEventListener('click', function () {
+  customizeOverlay.classList.remove('open');
+});
+customizeOverlay.addEventListener('click', function (e) {
+  if (e.target === customizeOverlay) customizeOverlay.classList.remove('open');
+});
 
 // ---- boot ----
 loadTicker();
@@ -1751,7 +1857,6 @@ loadExams();
 loadCountdowns();
 loadTodos();
 loadFinanceAndRobinhood();
-loadConfig().then(function () {
-  if (widgetEnabled('agent-tracker')) loadAgentTracker();
-  if (widgetEnabled('railway')) loadRailwayStatus();
-});
+loadAgentTracker();
+loadRailwayStatus();
+loadWidgetLayout();

@@ -4,21 +4,30 @@ const router = express.Router();
 
 // This app never talks to Robinhood directly - there is no public API for personal
 // account data. Claude (in a chat session, using its authorized MCP connector) pulls
-// real numbers via get_portfolio/get_equity_historicals and POSTs the snapshot here.
+// real numbers via get_portfolio/get_equity_historicals and POSTs the snapshot here,
+// always as the 'tslep' account (see lib/mcp-server.js).
+//
+// Every read below is scoped to req.userId like every other route - there is no
+// shared/admin bypass. That means anyone other than tslep hitting these endpoints
+// simply gets an empty result (their own, nonexistent, Robinhood rows), never
+// tslep's real financial data - this is the data-isolation guarantee requested
+// specifically for this route.
 
 router.get('/latest', async (req, res) => {
-  const { rows } = await req.db.query(`
-    SELECT DISTINCT ON (account_label) *
-    FROM robinhood_snapshots
-    ORDER BY account_label, logged_at DESC
-  `);
+  const { rows } = await req.db.query(
+    `SELECT DISTINCT ON (account_label) *
+     FROM robinhood_snapshots
+     WHERE user_id = $1
+     ORDER BY account_label, logged_at DESC`,
+    [req.userId]
+  );
   res.json(rows);
 });
 
 router.get('/history/:label', async (req, res) => {
   const { rows } = await req.db.query(
-    'SELECT * FROM robinhood_snapshots WHERE account_label = $1 ORDER BY logged_at ASC',
-    [req.params.label]
+    'SELECT * FROM robinhood_snapshots WHERE user_id = $1 AND account_label = $2 ORDER BY logged_at ASC',
+    [req.userId, req.params.label]
   );
   res.json(rows);
 });
@@ -37,9 +46,9 @@ router.get('/as-of', async (req, res) => {
   const { rows } = await req.db.query(`
     SELECT DISTINCT ON (account_label) *
     FROM robinhood_snapshots
-    WHERE logged_at <= $1
+    WHERE user_id = $1 AND logged_at <= $2
     ORDER BY account_label, logged_at DESC
-  `, [asOf.toISOString()]);
+  `, [req.userId, asOf.toISOString()]);
 
   const results = rows.map((snap) => {
     const history = (snap.history || [])
@@ -59,9 +68,9 @@ router.post('/snapshot', async (req, res) => {
   }
   const safeHistory = Array.isArray(history) ? history : [];
   const { rows } = await req.db.query(
-    `INSERT INTO robinhood_snapshots (account_label, total_value, history)
-     VALUES ($1, $2, $3) RETURNING *`,
-    [account_label, total_value, JSON.stringify(safeHistory)]
+    `INSERT INTO robinhood_snapshots (account_label, total_value, history, user_id)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [account_label, total_value, JSON.stringify(safeHistory), req.userId]
   );
   res.status(201).json(rows[0]);
 });
