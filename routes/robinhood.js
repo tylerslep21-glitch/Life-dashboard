@@ -1,5 +1,4 @@
 const express = require('express');
-const { pool } = require('../db');
 
 const router = express.Router();
 
@@ -8,7 +7,7 @@ const router = express.Router();
 // real numbers via get_portfolio/get_equity_historicals and POSTs the snapshot here.
 
 router.get('/latest', async (req, res) => {
-  const { rows } = await pool.query(`
+  const { rows } = await req.db.query(`
     SELECT DISTINCT ON (account_label) *
     FROM robinhood_snapshots
     ORDER BY account_label, logged_at DESC
@@ -17,7 +16,7 @@ router.get('/latest', async (req, res) => {
 });
 
 router.get('/history/:label', async (req, res) => {
-  const { rows } = await pool.query(
+  const { rows } = await req.db.query(
     'SELECT * FROM robinhood_snapshots WHERE account_label = $1 ORDER BY logged_at ASC',
     [req.params.label]
   );
@@ -35,7 +34,7 @@ router.get('/as-of', async (req, res) => {
   // own snapshots (logged later in the day) - extend the cutoff to end-of-day.
   if (req.query.date) asOf.setUTCHours(23, 59, 59, 999);
 
-  const { rows } = await pool.query(`
+  const { rows } = await req.db.query(`
     SELECT DISTINCT ON (account_label) *
     FROM robinhood_snapshots
     WHERE logged_at <= $1
@@ -59,7 +58,7 @@ router.post('/snapshot', async (req, res) => {
     return res.status(400).json({ error: 'account_label, total_value (number) are required' });
   }
   const safeHistory = Array.isArray(history) ? history : [];
-  const { rows } = await pool.query(
+  const { rows } = await req.db.query(
     `INSERT INTO robinhood_snapshots (account_label, total_value, history)
      VALUES ($1, $2, $3) RETURNING *`,
     [account_label, total_value, JSON.stringify(safeHistory)]

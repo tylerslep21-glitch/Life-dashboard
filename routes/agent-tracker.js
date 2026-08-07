@@ -1,5 +1,4 @@
 const express = require('express');
-const { pool } = require('../db');
 
 const router = express.Router();
 
@@ -9,7 +8,7 @@ const router = express.Router();
 
 router.get('/', async (req, res) => {
   const onlyRecurring = req.query.recurring === 'true';
-  const { rows } = await pool.query(
+  const { rows } = await req.db.query(
     onlyRecurring
       ? 'SELECT * FROM agent_status WHERE recurring = true ORDER BY agent_name ASC'
       : 'SELECT * FROM agent_status ORDER BY agent_name ASC'
@@ -22,7 +21,7 @@ router.post('/', async (req, res) => {
   if (!agent_name || !status_summary) {
     return res.status(400).json({ error: 'agent_name, status_summary are required' });
   }
-  const { rows } = await pool.query(
+  const { rows } = await req.db.query(
     `INSERT INTO agent_status (agent_name, status_summary, action_taken, recurring, last_run_at, expected_interval_hours, updated_at)
      VALUES ($1, $2, $3, COALESCE($4, true), COALESCE($5, now()), $6, now())
      ON CONFLICT (agent_name) DO UPDATE
@@ -41,7 +40,7 @@ router.post('/', async (req, res) => {
 });
 
 router.delete('/:agentName', async (req, res) => {
-  await pool.query('DELETE FROM agent_status WHERE agent_name = $1', [req.params.agentName]);
+  await req.db.query('DELETE FROM agent_status WHERE agent_name = $1', [req.params.agentName]);
   res.status(204).end();
 });
 

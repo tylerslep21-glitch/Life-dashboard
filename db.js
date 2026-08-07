@@ -5,14 +5,33 @@ const { Pool } = require('pg');
 // Railway's public proxy connection (host contains rlwy.net, e.g. DATABASE_PUBLIC_URL
 // used by local scripts) does need SSL. Any other host (e.g. a local dev Postgres)
 // defaults to no SSL.
-const url = process.env.DATABASE_URL || '';
-const needsSSL = url.includes('rlwy.net') && !url.includes('.railway.internal');
+function makePool(connectionString) {
+  const needsSSL = connectionString.includes('rlwy.net') && !connectionString.includes('.railway.internal');
+  return new Pool({
+    connectionString,
+    ssl: needsSSL ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 10000,
+  });
+}
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: needsSSL ? { rejectUnauthorized: false } : false,
-  connectionTimeoutMillis: 10000,
-});
+const pool = makePool(process.env.DATABASE_URL);
+
+// Second tenant ("j") sharing this same running app/service but with its own
+// database on the same Postgres instance - a second login that never sees
+// the first tenant's data. Set up as a second full pool, not a second
+// connection on the same one, and not a schema/table prefix within the same
+// database: full logical separation, same as if it were a wholly separate
+// deployment, just cheaper (no second Railway service needed). Only created
+// if DATABASE_URL_J is actually configured - a deployment without a second
+// tenant just runs single-tenant as before.
+const poolJ = process.env.DATABASE_URL_J ? makePool(process.env.DATABASE_URL_J) : null;
+
+const POOLS = { default: pool };
+if (poolJ) POOLS.j = poolJ;
+
+function getPool(tenant) {
+  return POOLS[tenant] || null;
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS finance_entries (
@@ -127,7 +146,7 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
 `;
 
 async function migrate() {
-  await pool.query(SCHEMA);
+  await Promise.all(Object.values(POOLS).map((p) => p.query(SCHEMA)));
 }
 
-module.exports = { pool, migrate };
+module.exports = { pool, poolJ, getPool, migrate };

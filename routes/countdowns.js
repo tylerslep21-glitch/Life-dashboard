@@ -1,10 +1,9 @@
 const express = require('express');
-const { pool } = require('../db');
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM countdowns ORDER BY target_date ASC');
+  const { rows } = await req.db.query('SELECT * FROM countdowns ORDER BY target_date ASC');
   res.json(rows);
 });
 
@@ -13,7 +12,7 @@ router.post('/', async (req, res) => {
   if (!name || !target_date) {
     return res.status(400).json({ error: 'name, target_date are required' });
   }
-  const { rows } = await pool.query(
+  const { rows } = await req.db.query(
     'INSERT INTO countdowns (name, target_date, image_url) VALUES ($1, $2, $3) RETURNING *',
     [name, target_date, image_url || null]
   );
@@ -21,7 +20,7 @@ router.post('/', async (req, res) => {
 });
 
 router.delete('/:id', async (req, res) => {
-  await pool.query('DELETE FROM countdowns WHERE id = $1', [req.params.id]);
+  await req.db.query('DELETE FROM countdowns WHERE id = $1', [req.params.id]);
   res.status(204).end();
 });
 
