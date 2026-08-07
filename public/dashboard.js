@@ -2267,112 +2267,57 @@ document.querySelectorAll('.module').forEach(function (el) {
 
 renderChristmasLights();
 
-// ---- self-service widget visibility + reorder ("Customize dashboard") ----
-// Canonical list of every data-widget-id in index.html. New widgets just get
-// added here + a data-widget-id attribute - a user who never opens the
-// customize modal still sees them (missing-from-saved-layout defaults to
-// enabled, appended at the end - see applyWidgetLayout()).
-// adminOnly widgets only apply to the tslep account (Robinhood/agent/infra data is
-// tied specifically to that account server-side - see routes/robinhood.js) - other
-// accounts never see them in the customize list, and can't turn them on themselves.
+// ---- self-service widget layout: freeform grid, drag to reposition, drag a
+// corner to resize, edit mode toggled from the header button (iPhone-
+// homescreen style, not the earlier list-based reorder modal) ----
+// Canonical list of every data-widget-id in index.html, plus a short
+// example/fake-data preview shown in the edit-mode "add widget" gallery for
+// anything not currently on the dashboard, so picking a widget isn't a
+// guess at what it looks like. adminOnly widgets only apply to the tslep
+// account (Robinhood/agent/infra data is tied specifically to that account
+// server-side - see routes/robinhood.js) - other accounts never see them in
+// the gallery, and can't add them.
 var WIDGET_REGISTRY = [
-  { id: 'calendar', name: 'Calendar' },
-  { id: 'subscriptions', name: 'Subscriptions' },
-  { id: 'exams', name: 'Exams / Big Projects' },
-  { id: 'countdowns', name: 'Countdowns' },
-  { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true },
-  { id: 'railway', name: 'Railway', adminOnly: true },
-  { id: 'errors', name: 'Errors', adminOnly: true },
-  { id: 'todo', name: 'To-Do' },
-  { id: 'slideshow', name: 'Photos' },
-  { id: 'weather', name: 'Weather' },
-  { id: 'sports', name: 'Sports' },
-  { id: 'moon-phase', name: 'Moon phase' },
-  { id: 'notes', name: 'Notes' },
-  { id: 'week-nav', name: 'Week navigator' },
-  { id: 'finance-stats', name: 'Net worth / spent / income' },
-  { id: 'net-worth-breakdown', name: 'Net worth breakdown' },
-  { id: 'spending-by-category', name: 'Spending by category' },
-  { id: 'bank', name: 'Bank (1yr)' },
-  { id: 'robinhood-agentic', name: 'Robinhood · Agentic', adminOnly: true },
-  { id: 'robinhood-individual', name: 'Robinhood · Individual', adminOnly: true },
-  { id: 'status-row', name: 'Status row' },
+  { id: 'calendar', name: 'Calendar', preview: 'Team meeting · 2:00 PM\nDentist · tomorrow' },
+  { id: 'subscriptions', name: 'Subscriptions', preview: 'Netflix · $15.49/mo\nSpotify · $11.99/mo' },
+  { id: 'exams', name: 'Exams / Big Projects', preview: 'Final exam · in 12 days' },
+  { id: 'countdowns', name: 'Countdowns', preview: 'Vacation · 34 days left' },
+  { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true, preview: 'daily-sync · Active' },
+  { id: 'railway', name: 'Railway', adminOnly: true, preview: 'Life-dashboard · Running' },
+  { id: 'errors', name: 'Errors', adminOnly: true, preview: 'No errors logged' },
+  { id: 'todo', name: 'To-Do', preview: '☐ Buy groceries\n☑ Finish report' },
+  { id: 'slideshow', name: 'Photos', preview: '(rotating photo slideshow)' },
+  { id: 'weather', name: 'Weather', preview: '72°F · Partly cloudy' },
+  { id: 'sports', name: 'Sports', preview: 'Cowboys @ Eagles · Sun 1:00 PM' },
+  { id: 'moon-phase', name: 'Moon phase', preview: 'Waxing gibbous · 78%' },
+  { id: 'notes', name: 'Notes', preview: '(freeform scratchpad)' },
+  { id: 'week-nav', name: 'Week navigator', preview: 'Week of Aug 4' },
+  { id: 'finance-stats', name: 'Net worth / spent / income', preview: 'Net worth $12,480' },
+  { id: 'net-worth-breakdown', name: 'Net worth breakdown', preview: '(asset/liability chart)' },
+  { id: 'spending-by-category', name: 'Spending by category', preview: '(spending chart)' },
+  { id: 'bank', name: 'Bank (1yr)', preview: '$4,210 · 1yr trend' },
+  { id: 'robinhood-agentic', name: 'Robinhood · Agentic', adminOnly: true, preview: '$1,204.55' },
+  { id: 'robinhood-individual', name: 'Robinhood · Individual', adminOnly: true, preview: '$3,880.12' },
+  { id: 'status-row', name: 'Status row', preview: '3 entries logged this week' },
 ];
 
-var currentWidgetLayout = null; // [{id, enabled}, ...] as loaded from /api/me, in saved order
+var currentWidgetLayout = null; // [{id, enabled, x, y, w, h}, ...] as loaded from /api/me
 var isAdminUser = false; // set once /api/me resolves - see loadWidgetLayout()
-
-// Financial widgets vs. everything else. Non-financial always stays above
-// financial by default, but a user can flip the whole financial block above
-// everything else if they want - the two blocks just never interleave, and
-// each block has a pinned leader that always stays first within it: Calendar
-// (gets its own full-width banner + divider, #calendar-divider) leads
-// non-financial, and the date picker (week-nav) leads financial - so no
-// financial widget can ever be dragged above the date picker.
-var WIDGET_CATEGORY = {
-  calendar: 'non-financial',
-  subscriptions: 'non-financial',
-  exams: 'non-financial',
-  countdowns: 'non-financial',
-  'agent-tracker': 'non-financial',
-  errors: 'non-financial',
-  railway: 'non-financial',
-  todo: 'non-financial',
-  slideshow: 'non-financial',
-  weather: 'non-financial',
-  sports: 'non-financial',
-  'moon-phase': 'non-financial',
-  notes: 'non-financial',
-  'week-nav': 'financial',
-  'finance-stats': 'financial',
-  'net-worth-breakdown': 'financial',
-  'spending-by-category': 'financial',
-  bank: 'financial',
-  'robinhood-agentic': 'financial',
-  'robinhood-individual': 'financial',
-  'status-row': 'financial',
-};
-var CATEGORY_LEADER = { 'non-financial': 'calendar', financial: 'week-nav' };
-
-// Enforces the grouping rule above on an arbitrary (possibly-invalid, e.g.
-// fresh off a drag-and-drop) ordering: the two categories become two
-// contiguous blocks (never interleaved), each with its pinned leader first.
-// Which block leads is read from whichever category's first member appears
-// earliest in the input list - that's what lets a user flip the whole
-// financial block above everything else just by dragging one item there.
-function normalizeGroupedOrder(list) {
-  var byCategory = { 'non-financial': [], financial: [] };
-  list.forEach(function (w) {
-    var cat = WIDGET_CATEGORY[w.id] || 'non-financial';
-    byCategory[cat].push(w);
-  });
-  ['non-financial', 'financial'].forEach(function (cat) {
-    var leader = CATEGORY_LEADER[cat];
-    byCategory[cat].sort(function (a, b) {
-      if (a.id === leader) return -1;
-      if (b.id === leader) return 1;
-      return 0;
-    });
-  });
-  var firstNonFinIdx = list.findIndex(function (w) { return (WIDGET_CATEGORY[w.id] || 'non-financial') === 'non-financial'; });
-  var firstFinIdx = list.findIndex(function (w) { return WIDGET_CATEGORY[w.id] === 'financial'; });
-  var financialFirst = firstFinIdx !== -1 && (firstNonFinIdx === -1 || firstFinIdx < firstNonFinIdx);
-  return financialFirst
-    ? byCategory.financial.concat(byCategory['non-financial'])
-    : byCategory['non-financial'].concat(byCategory.financial);
-}
+var editModeOn = false;
+var GRID_COLS = 3; // matches .modules' desktop grid-template-columns
+var MAX_SPAN = 3;  // "full screen" cap from the 3-column grid's own width
 
 // NULL (no saved layout at all - true for every account that existed before
-// per-widget layout did) means "all widgets, enabled" for backward
-// compatibility - nobody's dashboard silently went blank the day this
-// shipped. An actual saved array, even an empty one, is taken literally: a
-// brand new account starts with widget_layout explicitly set to [] (see
-// signup in routes/auth.js) precisely so it renders as a deliberately blank
-// dashboard instead of everything-on, and widgets missing from a real saved
-// array are simply not placed - they show up in the edit-mode "add widget"
-// gallery instead of being silently auto-added. adminOnly widgets are
-// dropped entirely for non-admin users either way. Not normalized yet -
-// applyWidgetLayout() does that and returns the canonical order.
+// per-widget layout did) means "all widgets, enabled, auto-arranged" for
+// backward compatibility - nobody's dashboard silently went blank the day
+// this shipped. An actual saved array, even an empty one, is taken
+// literally: a brand new account starts with widget_layout explicitly set
+// to [] (see signup in routes/auth.js) so it renders as a deliberately
+// blank dashboard, and widgets missing from a real saved array are simply
+// not placed - they show up in the edit-mode gallery instead of being
+// silently auto-added. adminOnly widgets are dropped entirely for
+// non-admin users either way. x/y/w/h are filled in by packMissingPositions()
+// below, not here - this only decides which widgets are in play.
 function resolveWidgetLayout(saved) {
   var allowed = WIDGET_REGISTRY.filter(function (r) { return isAdminUser || !r.adminOnly; });
   if (!Array.isArray(saved)) {
@@ -2380,58 +2325,97 @@ function resolveWidgetLayout(saved) {
   }
   return saved
     .filter(function (w) { return allowed.some(function (r) { return r.id === w.id; }); })
-    .map(function (w) { return { id: w.id, enabled: w.enabled !== false }; });
+    .map(function (w) { return { id: w.id, enabled: w.enabled !== false, x: w.x, y: w.y, w: w.w, h: w.h }; });
 }
 
-// Applies a (possibly-invalid) layout to the live grid: normalizes it first,
-// positions every widget via CSS order (multiples of 10, leaving room for
-// the two structural dividers in between), and returns the normalized array
-// so callers can persist/re-render the canonical order rather than the raw
-// input.
-function applyWidgetLayout(layout) {
-  var normalized = normalizeGroupedOrder(layout);
+// Assigns x/y/w/h to any item missing them (legacy accounts with only
+// order-based positions from before this rewrite, or a widget just added
+// from the gallery) by packing them into the next open slot, top-left
+// first, scanning row by row - the same idea as CSS Grid's own
+// auto-placement algorithm, just computed once here so drag/resize have
+// real explicit coordinates to work with afterward instead of relying on
+// document flow.
+function packMissingPositions(items) {
+  var occupied = {};
+  function isFree(x, y, w, h) {
+    for (var dy = 0; dy < h; dy++) {
+      for (var dx = 0; dx < w; dx++) {
+        if (x + dx >= GRID_COLS) return false;
+        if (occupied[(x + dx) + ',' + (y + dy)]) return false;
+      }
+    }
+    return true;
+  }
+  function occupy(x, y, w, h) {
+    for (var dy = 0; dy < h; dy++) {
+      for (var dx = 0; dx < w; dx++) occupied[(x + dx) + ',' + (y + dy)] = true;
+    }
+  }
+  items.forEach(function (item) {
+    if (typeof item.x === 'number' && typeof item.y === 'number') {
+      occupy(item.x, item.y, item.w || 1, item.h || 1);
+    }
+  });
+  return items.map(function (item) {
+    if (typeof item.x === 'number' && typeof item.y === 'number') {
+      return { id: item.id, enabled: item.enabled, x: item.x, y: item.y, w: item.w || 1, h: item.h || 1 };
+    }
+    var w = Math.min(item.w || 1, GRID_COLS);
+    var h = item.h || 1;
+    var y = 0;
+    while (true) {
+      for (var x = 0; x <= GRID_COLS - w; x++) {
+        if (isFree(x, y, w, h)) {
+          occupy(x, y, w, h);
+          return { id: item.id, enabled: item.enabled, x: x, y: y, w: w, h: h };
+        }
+      }
+      y++;
+    }
+  });
+}
+
+// Positions every widget on the live grid via explicit grid-column/grid-row
+// (not CSS order - a freeform 2D grid needs real coordinates), hides
+// anything disabled or genuinely absent from the layout, and returns the
+// packed layout so callers persist/track the canonical positions rather
+// than whatever partial data triggered this call.
+function applyGridLayout(layout) {
+  var packed = packMissingPositions(layout);
   var placedIds = {};
-  normalized.forEach(function (w, i) {
+  packed.forEach(function (w) {
     placedIds[w.id] = true;
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
     if (!el) return;
-    el.style.order = i * 10;
+    el.style.gridColumn = (w.x + 1) + ' / span ' + w.w;
+    el.style.gridRow = (w.y + 1) + ' / span ' + w.h;
     el.style.display = w.enabled ? '' : 'none';
   });
-  // Any registry widget not present in the layout at all - not just
-  // disabled, genuinely absent (a fresh account's deliberately-empty
-  // dashboard, or one not yet dragged on from the add-widget gallery) -
-  // isn't in the loop above, so it'd otherwise keep its default (visible)
-  // CSS state. Force it hidden explicitly.
   WIDGET_REGISTRY.forEach(function (r) {
     if (placedIds[r.id]) return;
     var el = document.querySelector('[data-widget-id="' + r.id + '"]');
     if (el) el.style.display = 'none';
   });
-
-  // Calendar's own divider always sits right after it; the finance divider
-  // always sits at the boundary between the two blocks, wherever that
-  // actually falls now.
+  // The old list-reorder system's financial/non-financial dividers don't
+  // have a coherent role in a freeform grid a user can arrange however they
+  // want - permanently hidden rather than positioned.
   var calendarDivider = document.getElementById('calendar-divider');
   var financeDivider = document.getElementById('finance-divider');
-  var calendarIdx = normalized.findIndex(function (w) { return w.id === 'calendar'; });
-  if (calendarDivider) {
-    var calendarEntry = normalized[calendarIdx];
-    calendarDivider.style.display = calendarEntry && calendarEntry.enabled ? '' : 'none';
-    if (calendarIdx !== -1) calendarDivider.style.order = calendarIdx * 10 + 5;
-  }
-  if (financeDivider && normalized.length) {
-    var firstCat = WIDGET_CATEGORY[normalized[0].id] || 'non-financial';
-    var boundaryIdx = normalized.findIndex(function (w) { return (WIDGET_CATEGORY[w.id] || 'non-financial') !== firstCat; });
-    if (boundaryIdx === -1) {
-      financeDivider.style.display = 'none';
-    } else {
-      financeDivider.style.display = '';
-      financeDivider.style.order = (boundaryIdx - 1) * 10 + 5;
-    }
-  }
+  if (calendarDivider) calendarDivider.style.display = 'none';
+  if (financeDivider) financeDivider.style.display = 'none';
+  return packed;
+}
 
-  return normalized;
+var persistLayoutTimer = null;
+function persistWidgetLayout() {
+  clearTimeout(persistLayoutTimer);
+  persistLayoutTimer = setTimeout(function () {
+    fetch('/api/me/widget-layout', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ widget_layout: currentWidgetLayout }),
+    });
+  }, 500);
 }
 
 async function loadWidgetLayout() {
@@ -2441,77 +2425,198 @@ async function loadWidgetLayout() {
     customThemes = Array.isArray(me.custom_themes) ? me.custom_themes : [];
     populateThemeSelectOptions();
     applyTheme(activeThemeValue); // pick up real colors now that custom themes have loaded
-    currentWidgetLayout = applyWidgetLayout(resolveWidgetLayout(me.widget_layout));
+    currentWidgetLayout = applyGridLayout(resolveWidgetLayout(me.widget_layout));
   } catch (err) {
     isAdminUser = false;
-    currentWidgetLayout = applyWidgetLayout(resolveWidgetLayout(null));
+    currentWidgetLayout = applyGridLayout(resolveWidgetLayout(null));
   }
 }
 
-var CATEGORY_LABEL = { 'non-financial': 'Everyday', financial: 'Financial' };
+// ---- edit mode: drag to reposition, drag the corner handle to resize ----
+// Built on Pointer Events (not native HTML5 drag-and-drop) for the same
+// reason as makeReorderable() elsewhere in this file - it's the one API
+// that actually fires on touch as well as mouse, which matters here more
+// than anywhere else given the iPad is this dashboard's primary display.
+function cellMetrics() {
+  var grid = document.querySelector('.modules');
+  var rect = grid.getBoundingClientRect();
+  var gap = parseFloat(getComputedStyle(grid).gap) || 0;
+  var cols = window.innerWidth <= 600 ? 1 : (window.innerWidth <= 900 ? 2 : GRID_COLS);
+  var colWidth = (rect.width - gap * (cols - 1)) / cols;
+  return { rect: rect, gap: gap, cols: cols, colWidth: colWidth, rowHeight: 200 + gap };
+}
 
-function renderCustomizeList() {
-  var list = document.getElementById('customize-widget-list');
-  var byId = {};
-  WIDGET_REGISTRY.forEach(function (r) { byId[r.id] = r.name; });
+function pointToCell(clientX, clientY) {
+  var m = cellMetrics();
+  var x = Math.floor((clientX - m.rect.left) / (m.colWidth + m.gap));
+  var y = Math.floor((clientY - m.rect.top) / m.rowHeight);
+  x = Math.max(0, Math.min(m.cols - 1, x));
+  y = Math.max(0, y);
+  return { x: x, y: y };
+}
 
-  var html = '';
-  currentWidgetLayout.forEach(function (w, i) {
-    var cat = WIDGET_CATEGORY[w.id] || 'non-financial';
-    var prevCat = i > 0 ? (WIDGET_CATEGORY[currentWidgetLayout[i - 1].id] || 'non-financial') : null;
-    if (i === 0) {
-      html += '<li class="customize-section-label">' + CATEGORY_LABEL[cat] + '</li>';
-    } else if (cat !== prevCat) {
-      html += '<li class="customize-breaker">Sections can’t be mixed together — drag a whole section above the other instead</li>';
-      html += '<li class="customize-section-label">' + CATEGORY_LABEL[cat] + '</li>';
+function findWidget(id) {
+  return currentWidgetLayout.find(function (w) { return w.id === id; });
+}
+
+// Swaps with whatever's currently at the exact target top-left cell, if
+// anything - the simplest collision handling that still feels intentional
+// (matches how iOS itself swaps two icons dragged onto each other), rather
+// than a full push/reflow algorithm.
+function moveWidgetTo(id, x, y) {
+  var moving = findWidget(id);
+  if (!moving) return;
+  var occupant = currentWidgetLayout.find(function (w) { return w.id !== id && w.x === x && w.y === y; });
+  if (occupant) {
+    occupant.x = moving.x;
+    occupant.y = moving.y;
+  }
+  moving.x = Math.min(x, GRID_COLS - moving.w);
+  moving.y = y;
+  currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+  persistWidgetLayout();
+}
+
+var dragState = null;
+var resizeState = null;
+
+document.addEventListener('pointerdown', function (e) {
+  if (!editModeOn) return;
+  if (e.target.closest('.widget-resize-handle')) {
+    var resizeEl = e.target.closest('[data-widget-id]');
+    if (!resizeEl) return;
+    var item = findWidget(resizeEl.getAttribute('data-widget-id'));
+    if (!item) return;
+    resizeState = { id: item.id, startX: e.clientX, startY: e.clientY, startW: item.w, startH: item.h };
+    try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  if (e.target.closest('.widget-remove-btn')) return; // handled by its own click listener
+  var moduleEl = e.target.closest('.module[data-widget-id]');
+  if (!moduleEl) return;
+  dragState = { id: moduleEl.getAttribute('data-widget-id'), startClientX: e.clientX, startClientY: e.clientY };
+  moduleEl.classList.add('widget-dragging');
+  try { moduleEl.setPointerCapture(e.pointerId); } catch (err) {}
+  e.preventDefault();
+});
+
+document.addEventListener('pointermove', function (e) {
+  if (dragState) {
+    var el = document.querySelector('[data-widget-id="' + dragState.id + '"]');
+    if (el) {
+      var dx = e.clientX - dragState.startClientX;
+      var dy = e.clientY - dragState.startClientY;
+      el.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
     }
-    html += (
-      '<li class="todo-row" data-id="' + w.id + '">' +
-        '<span class="todo-drag-handle">&#9776;</span>' +
-        '<input type="checkbox" class="todo-checkbox widget-visible-checkbox"' + (w.enabled ? ' checked' : '') + '>' +
-        '<span class="todo-text">' + (byId[w.id] || w.id) + '</span>' +
-      '</li>'
-    );
-  });
-  list.innerHTML = html;
-
-  function persistLayoutFromDom() {
-    var order = Array.from(list.querySelectorAll('.todo-row')).map(function (row) {
-      return { id: row.dataset.id, enabled: row.querySelector('.widget-visible-checkbox').checked };
-    });
-    // applyWidgetLayout() enforces the no-mixing/pinned-leader rules and hands
-    // back the corrected order - re-render the modal list itself with that
-    // canonical order so an invalid drop (e.g. dragging one financial widget
-    // in front of just the last non-financial item) visibly snaps back to a
-    // valid arrangement instead of only fixing the live dashboard underneath.
-    currentWidgetLayout = applyWidgetLayout(order);
-    renderCustomizeList();
-    fetch('/api/me/widget-layout', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ widget_layout: currentWidgetLayout }),
-    });
+  } else if (resizeState) {
+    var m = cellMetrics();
+    var rdx = e.clientX - resizeState.startX;
+    var rdy = e.clientY - resizeState.startY;
+    var addCols = Math.round(rdx / (m.colWidth + m.gap));
+    var addRows = Math.round(rdy / m.rowHeight);
+    var item = findWidget(resizeState.id);
+    if (item) {
+      item.w = Math.max(1, Math.min(MAX_SPAN, GRID_COLS - item.x, resizeState.startW + addCols));
+      item.h = Math.max(1, Math.min(MAX_SPAN, resizeState.startH + addRows));
+      currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+    }
   }
+});
 
-  list.querySelectorAll('.widget-visible-checkbox').forEach(function (cb) {
-    cb.addEventListener('change', persistLayoutFromDom);
+document.addEventListener('pointerup', function (e) {
+  if (dragState) {
+    var el = document.querySelector('[data-widget-id="' + dragState.id + '"]');
+    if (el) {
+      el.classList.remove('widget-dragging');
+      el.style.transform = '';
+      var cell = pointToCell(e.clientX, e.clientY);
+      moveWidgetTo(dragState.id, cell.x, cell.y);
+    }
+    dragState = null;
+  } else if (resizeState) {
+    resizeState = null;
+    persistWidgetLayout();
+  }
+});
+
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest('.widget-remove-btn');
+  if (!btn) return;
+  var el = btn.closest('[data-widget-id]');
+  if (!el) return;
+  var id = el.getAttribute('data-widget-id');
+  currentWidgetLayout = currentWidgetLayout.filter(function (w) { return w.id !== id; });
+  currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+  persistWidgetLayout();
+  if (editModeOn) renderAddWidgetGallery();
+});
+
+// Injects the remove button + resize handle into every widget once, up
+// front - simpler and far less repetitive than hand-adding them to every
+// module section in index.html.
+document.querySelectorAll('[data-widget-id]').forEach(function (el) {
+  var removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'widget-remove-btn';
+  removeBtn.setAttribute('aria-label', 'Remove widget');
+  removeBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  el.appendChild(removeBtn);
+
+  var resizeHandle = document.createElement('span');
+  resizeHandle.className = 'widget-resize-handle';
+  resizeHandle.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 20L12 20M20 20L20 12M20 20L9 9"/></svg>';
+  el.appendChild(resizeHandle);
+});
+
+function renderAddWidgetGallery() {
+  var listEl = document.getElementById('add-widget-list');
+  var placedIds = {};
+  currentWidgetLayout.forEach(function (w) { placedIds[w.id] = true; });
+  var available = WIDGET_REGISTRY.filter(function (r) {
+    if (placedIds[r.id]) return false;
+    if (r.adminOnly && !isAdminUser) return false;
+    return true;
   });
-
-  makeReorderable(list, persistLayoutFromDom);
+  if (!available.length) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">All available widgets are already on your dashboard.</p>';
+    return;
+  }
+  listEl.innerHTML = available.map(function (r) {
+    return (
+      '<button type="button" class="add-widget-card" data-id="' + r.id + '">' +
+        '<span class="add-widget-card-name">' + r.name + '</span>' +
+        '<span class="add-widget-card-preview">' + (r.preview || '') + '</span>' +
+      '</button>'
+    );
+  }).join('');
+  listEl.querySelectorAll('.add-widget-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      currentWidgetLayout.push({ id: card.dataset.id, enabled: true });
+      currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+      persistWidgetLayout();
+      renderAddWidgetGallery();
+    });
+  });
 }
 
-var customizeOverlay = document.getElementById('customize-modal-overlay');
+function enterEditMode() {
+  editModeOn = true;
+  document.body.classList.add('dashboard-edit-mode');
+  document.getElementById('add-widget-gallery').style.display = 'block';
+  renderAddWidgetGallery();
+}
+function exitEditMode() {
+  editModeOn = false;
+  document.body.classList.remove('dashboard-edit-mode');
+  document.getElementById('add-widget-gallery').style.display = 'none';
+}
+
 document.getElementById('open-customize-dashboard').addEventListener('click', function () {
-  document.getElementById('customize-status').textContent = '';
-  renderCustomizeList();
-  customizeOverlay.classList.add('open');
+  if (editModeOn) exitEditMode(); else enterEditMode();
 });
-document.getElementById('cancel-customize-form').addEventListener('click', function () {
-  customizeOverlay.classList.remove('open');
-});
-customizeOverlay.addEventListener('click', function (e) {
-  if (e.target === customizeOverlay) customizeOverlay.classList.remove('open');
-});
+document.getElementById('done-editing-btn').addEventListener('click', exitEditMode);
 
 // ---- Photos / slideshow widget (up to 5 photos, auto-advancing) ----
 var slideshowPhotos = [];

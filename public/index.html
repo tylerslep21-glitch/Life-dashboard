@@ -27,7 +27,7 @@
     <button type="button" class="icon-btn" id="open-signin-settings" aria-label="Sign-in settings">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.2-3.8 4.3-5.8 7.5-5.8s6.3 2 7.5 5.8"/></svg>
     </button>
-    <button type="button" class="icon-btn" id="open-customize-dashboard" aria-label="Customize dashboard">
+    <button type="button" class="icon-btn" id="open-customize-dashboard" aria-label="Edit dashboard">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
     </button>
     <button type="button" class="icon-btn" id="toggle-retro" aria-label="Toggle retro theme">
@@ -586,18 +586,19 @@
   </div>
 </div>
 
-<div class="modal-overlay" id="customize-modal-overlay">
-  <div class="modal">
-    <h2>Customize dashboard</h2>
-    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
-      Drag to reorder. Uncheck to hide a widget.
-    </p>
-    <ul class="todo-list" id="customize-widget-list"></ul>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-outline-only" id="cancel-customize-form">Close</button>
-    </div>
-    <p class="form-status" id="customize-status"></p>
+<!-- Edit-dashboard mode: not a blocking modal - the dashboard itself stays
+     visible and interactive (drag/resize the modules directly) while this
+     dock at the bottom holds widgets not currently placed, so adding one is
+     drag-target-visible instead of hidden behind an overlay. -->
+<div id="add-widget-gallery">
+  <div class="add-widget-gallery-head">
+    <h2>Add a widget</h2>
+    <button type="button" class="btn btn-primary" id="done-editing-btn">Done</button>
   </div>
+  <p style="color: var(--muted); font-size: 0.85rem; margin: -0.4rem 0 0.6rem;">
+    Tap a widget to add it, then drag to reposition or drag its corner to resize. Tap the &times; on any widget to remove it.
+  </p>
+  <div id="add-widget-list"></div>
 </div>
 
 <div class="modal-overlay" id="signin-modal-overlay">

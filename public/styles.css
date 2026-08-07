@@ -178,6 +178,10 @@
   .modules {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    /* A fixed-ish row height (not pure auto) so resizing a widget to h:2
+       means something predictable and consistent, rather than each row
+       sizing independently to whatever content happens to be in it. */
+    grid-auto-rows: minmax(200px, auto);
     gap: 1.1rem;
   }
   @media (max-width: 900px) {
@@ -186,6 +190,57 @@
   @media (max-width: 600px) {
     .modules { grid-template-columns: 1fr; }
   }
+
+  /* ---- Edit-dashboard mode (drag to reposition, corner handle to resize,
+     see makeGridEditable() in dashboard.js) - an iPhone-homescreen-style
+     freeform grid, not the earlier list-based reorder modal. ---- */
+  body.dashboard-edit-mode .module {
+    outline: 2px dashed var(--accent);
+    outline-offset: 3px;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  body.dashboard-edit-mode .module.widget-dragging {
+    opacity: 0.55;
+    cursor: grabbing;
+    z-index: 40;
+  }
+  .widget-remove-btn {
+    position: absolute;
+    top: -0.6rem;
+    right: -0.6rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--critical);
+    border: 2px solid var(--paper);
+    color: #fff;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 6;
+    padding: 0;
+  }
+  body.dashboard-edit-mode .module .widget-remove-btn { display: flex; }
+  .widget-resize-handle {
+    position: absolute;
+    bottom: 0.3rem;
+    right: 0.3rem;
+    width: 1.1rem;
+    height: 1.1rem;
+    cursor: nwse-resize;
+    display: none;
+    touch-action: none;
+    color: var(--accent);
+    opacity: 0.7;
+  }
+  body.dashboard-edit-mode .module .widget-resize-handle { display: block; }
+  /* Every module needs to be a positioning context for the remove button/
+     resize handle above, regardless of edit mode (added unconditionally
+     rather than only in edit mode, so it doesn't shift layout on toggle). */
+  .module { position: relative; }
   .span-2 { grid-column: span 2; }
   .span-3 { grid-column: span 3; }
   @media (max-width: 900px) {
@@ -1194,4 +1249,53 @@
 }
 .icon-btn .icon { width: 1rem; height: 1rem; }
 .pill .icon { width: 0.85em; height: 0.85em; margin-right: 0.15em; }
+
+/* ---- Edit-dashboard mode: add-widget gallery dock (see index.html /
+   makeGridEditable() in dashboard.js) ---- */
+#add-widget-gallery {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 40vh;
+  overflow-y: auto;
+  background: var(--paper-raised);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px var(--shadow);
+  padding: 1rem 1.5rem 1.5rem;
+  z-index: 60;
+}
+.add-widget-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.add-widget-gallery-head h2 { margin: 0; }
+#add-widget-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.7rem;
+}
+.add-widget-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.add-widget-card:hover { border-color: var(--accent); }
+.add-widget-card-name { font-weight: 600; font-size: 0.85rem; }
+.add-widget-card-preview {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: pre-line;
+}
 
