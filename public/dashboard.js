@@ -2107,16 +2107,50 @@ sessionStorage.removeItem(RESUMING_AFTER_IDLE_RELOAD_KEY);
   window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
 });
 
+// ---- soft data refresh for an always-on desk display ----
+// Re-calls each widget's own load function so fresh data replaces old data
+// in place - none of these functions clear a section back to its loading
+// skeleton first (that skeleton only ever exists in the page's initial
+// static HTML), so this never produces the every-widget-flashes-to-loading
+// flicker a full page reload does. Notes is deliberately excluded - it's a
+// plain <textarea>, and overwriting its value out from under someone even
+// mid-idle-window feels wrong for something that's meant to persist exactly
+// what was typed. Skipped while someone's actually using the page, same as
+// the hard reload below.
+function refreshAllWidgets() {
+  loadTicker();
+  loadCalendar();
+  loadSubscriptions();
+  loadExams();
+  loadCountdowns();
+  loadTodos();
+  loadFinanceAndRobinhood();
+  loadAgentTracker();
+  loadRailwayStatus();
+  loadSlideshow();
+  loadWeather();
+  renderMoonPhase();
+  if (isAdminUser) loadErrors();
+}
+setInterval(function () {
+  if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) return;
+  refreshAllWidgets();
+}, 2 * 60 * 1000);
+
 // ---- auto-reload for an always-on desk display ----
-// A full page reload (not a soft re-fetch) so every widget - calendar, ticker,
-// finance, everything - genuinely starts fresh, not just the ones with their
-// own setInterval above. Skipped while someone's actually using it, so an
-// in-progress tap/scroll doesn't get yanked out from under them.
+// A full page reload - unlike the soft refresh above, this actually picks up
+// a new deploy's JS/CSS, which a re-fetch can't do. Deliberately much less
+// frequent than the soft refresh now that the soft refresh handles routine
+// data freshness - this is here for eventual code freshness and as a
+// belt-and-suspenders full reset, not the main mechanism, so the
+// every-widget-shows-loading flash it causes is rare instead of every few
+// minutes. Skipped while someone's actually using it, so an in-progress
+// tap/scroll doesn't get yanked out from under them.
 setInterval(function () {
   if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) return;
   sessionStorage.setItem(RESUMING_AFTER_IDLE_RELOAD_KEY, '1');
   location.reload();
-}, 6 * 60 * 1000);
+}, 45 * 60 * 1000);
 
 // ---- idle auto-scroll for an always-on desk display ----
 // After a stretch with no interaction, the page creeps down on its own so a
