@@ -1764,11 +1764,66 @@ var WIDGET_REGISTRY = [
 var currentWidgetLayout = null; // [{id, enabled}, ...] as loaded from /api/me, in saved order
 var isAdminUser = false; // set once /api/me resolves - see loadWidgetLayout()
 
+// Financial widgets vs. everything else. Non-financial always stays above
+// financial by default, but a user can flip the whole financial block above
+// everything else if they want - the two blocks just never interleave, and
+// each block has a pinned leader that always stays first within it: Calendar
+// (gets its own full-width banner + divider, #calendar-divider) leads
+// non-financial, and the date picker (week-nav) leads financial - so no
+// financial widget can ever be dragged above the date picker.
+var WIDGET_CATEGORY = {
+  calendar: 'non-financial',
+  subscriptions: 'non-financial',
+  exams: 'non-financial',
+  countdowns: 'non-financial',
+  'agent-tracker': 'non-financial',
+  railway: 'non-financial',
+  todo: 'non-financial',
+  'week-nav': 'financial',
+  'finance-stats': 'financial',
+  'net-worth-breakdown': 'financial',
+  'spending-by-category': 'financial',
+  bank: 'financial',
+  'robinhood-agentic': 'financial',
+  'robinhood-individual': 'financial',
+  'status-row': 'financial',
+};
+var CATEGORY_LEADER = { 'non-financial': 'calendar', financial: 'week-nav' };
+
+// Enforces the grouping rule above on an arbitrary (possibly-invalid, e.g.
+// fresh off a drag-and-drop) ordering: the two categories become two
+// contiguous blocks (never interleaved), each with its pinned leader first.
+// Which block leads is read from whichever category's first member appears
+// earliest in the input list - that's what lets a user flip the whole
+// financial block above everything else just by dragging one item there.
+function normalizeGroupedOrder(list) {
+  var byCategory = { 'non-financial': [], financial: [] };
+  list.forEach(function (w) {
+    var cat = WIDGET_CATEGORY[w.id] || 'non-financial';
+    byCategory[cat].push(w);
+  });
+  ['non-financial', 'financial'].forEach(function (cat) {
+    var leader = CATEGORY_LEADER[cat];
+    byCategory[cat].sort(function (a, b) {
+      if (a.id === leader) return -1;
+      if (b.id === leader) return 1;
+      return 0;
+    });
+  });
+  var firstNonFinIdx = list.findIndex(function (w) { return (WIDGET_CATEGORY[w.id] || 'non-financial') === 'non-financial'; });
+  var firstFinIdx = list.findIndex(function (w) { return WIDGET_CATEGORY[w.id] === 'financial'; });
+  var financialFirst = firstFinIdx !== -1 && (firstNonFinIdx === -1 || firstFinIdx < firstNonFinIdx);
+  return financialFirst
+    ? byCategory.financial.concat(byCategory['non-financial'])
+    : byCategory['non-financial'].concat(byCategory.financial);
+}
+
 // Merges the saved layout with the canonical registry: known ids keep their
 // saved position/enabled state, anything missing (new widget, or a fresh
 // account with no saved layout yet) is appended as enabled. adminOnly widgets
 // are dropped entirely for non-admin users, even if present in a saved layout
-// (e.g. from before this account existed as a real account).
+// (e.g. from before this account existed as a real account). Not normalized
+// yet - applyWidgetLayout() does that and returns the canonical order.
 function resolveWidgetLayout(saved) {
   var allowed = WIDGET_REGISTRY.filter(function (r) { return isAdminUser || !r.adminOnly; });
   var savedList = Array.isArray(saved) ? saved : [];
@@ -1782,11 +1837,17 @@ function resolveWidgetLayout(saved) {
   return resolved;
 }
 
+// Applies a (possibly-invalid) layout to the live grid: normalizes it first,
+// positions every widget via CSS order (multiples of 10, leaving room for
+// the two structural dividers in between), and returns the normalized array
+// so callers can persist/re-render the canonical order rather than the raw
+// input.
 function applyWidgetLayout(layout) {
-  layout.forEach(function (w, i) {
+  var normalized = normalizeGroupedOrder(layout);
+  normalized.forEach(function (w, i) {
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
     if (!el) return;
-    el.style.order = i;
+    el.style.order = i * 10;
     el.style.display = w.enabled ? '' : 'none';
   });
   // adminOnly widgets are excluded from `layout` entirely for non-admin users -
@@ -1797,18 +1858,41 @@ function applyWidgetLayout(layout) {
       if (el) el.style.display = 'none';
     });
   }
+
+  // Calendar's own divider always sits right after it; the finance divider
+  // always sits at the boundary between the two blocks, wherever that
+  // actually falls now.
+  var calendarDivider = document.getElementById('calendar-divider');
+  var financeDivider = document.getElementById('finance-divider');
+  var calendarIdx = normalized.findIndex(function (w) { return w.id === 'calendar'; });
+  if (calendarDivider) {
+    var calendarEntry = normalized[calendarIdx];
+    calendarDivider.style.display = calendarEntry && calendarEntry.enabled ? '' : 'none';
+    if (calendarIdx !== -1) calendarDivider.style.order = calendarIdx * 10 + 5;
+  }
+  if (financeDivider && normalized.length) {
+    var firstCat = WIDGET_CATEGORY[normalized[0].id] || 'non-financial';
+    var boundaryIdx = normalized.findIndex(function (w) { return (WIDGET_CATEGORY[w.id] || 'non-financial') !== firstCat; });
+    if (boundaryIdx === -1) {
+      financeDivider.style.display = 'none';
+    } else {
+      financeDivider.style.display = '';
+      financeDivider.style.order = (boundaryIdx - 1) * 10 + 5;
+    }
+  }
+
+  return normalized;
 }
 
 async function loadWidgetLayout() {
   try {
     var me = await getJSON('/api/me');
     isAdminUser = me.username === 'tslep';
-    currentWidgetLayout = resolveWidgetLayout(me.widget_layout);
+    currentWidgetLayout = applyWidgetLayout(resolveWidgetLayout(me.widget_layout));
   } catch (err) {
     isAdminUser = false;
-    currentWidgetLayout = resolveWidgetLayout(null);
+    currentWidgetLayout = applyWidgetLayout(resolveWidgetLayout(null));
   }
-  applyWidgetLayout(currentWidgetLayout);
 }
 
 function renderCustomizeList() {
@@ -1827,11 +1911,15 @@ function renderCustomizeList() {
 
   function persistLayoutFromDom() {
     var order = Array.from(list.querySelectorAll('.todo-row')).map(function (row) {
-      var existing = currentWidgetLayout.find(function (w) { return w.id === row.dataset.id; });
       return { id: row.dataset.id, enabled: row.querySelector('.widget-visible-checkbox').checked };
     });
-    currentWidgetLayout = order;
-    applyWidgetLayout(currentWidgetLayout);
+    // applyWidgetLayout() enforces the no-mixing/pinned-leader rules and hands
+    // back the corrected order - re-render the modal list itself with that
+    // canonical order so an invalid drop (e.g. dragging one financial widget
+    // in front of just the last non-financial item) visibly snaps back to a
+    // valid arrangement instead of only fixing the live dashboard underneath.
+    currentWidgetLayout = applyWidgetLayout(order);
+    renderCustomizeList();
     fetch('/api/me/widget-layout', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
