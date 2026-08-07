@@ -79,8 +79,13 @@ function buildLightsSvg(width, colors) {
     '</g>';
   }).join('');
 
+  // overflow:visible - an SVG clips anything outside its own width/height by
+  // default, and the glow (radius up to 14) extends well past the viewBox on
+  // every side: past the top/bottom since it's centered close to the edges
+  // of a 26px-tall box, and past the left/right at the very first and last
+  // bulb specifically, since those sit exactly at x=0 and x=width.
   return '<svg class="christmas-lights" xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="26" ' +
-    'viewBox="0 0 ' + width.toFixed(1) + ' 26" style="position:absolute;top:-14px;left:0;pointer-events:none;">' +
+    'viewBox="0 0 ' + width.toFixed(1) + ' 26" style="position:absolute;top:-10px;left:0;overflow:visible;pointer-events:none;">' +
     '<defs><radialGradient id="' + gradId + '" cx="50%" cy="50%" r="50%">' + stops + '</radialGradient></defs>' +
     '<path d="' + path + '" stroke="' + colors.wire + '" stroke-width="1.6" fill="none"/>' +
     bulbs +
