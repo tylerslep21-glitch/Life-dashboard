@@ -3290,20 +3290,22 @@ function renderLeagueGameRow(g) {
   );
 }
 
-// Recent scores rotate 3 rows at a time every 6 seconds instead of showing
-// a long static list, so the widget stays a normal card size.
-function startRecentRotation(widgetId, recentEvents, listEl) {
-  if (leagueWidgetRotateTimers[widgetId]) clearInterval(leagueWidgetRotateTimers[widgetId]);
+// Both the upcoming and recent lists page through their full game list a
+// screenful at a time - rather than relying on the card's own scrollbar,
+// which is easy to miss/hard to use on a wall-mounted iPad nobody's
+// actually touching - advancing automatically every 6 seconds instead of
+// showing (or requiring a manual scroll through) a long static list.
+function startRotation(timerId, events, listEl, pageSize, emptyText) {
+  if (leagueWidgetRotateTimers[timerId]) clearInterval(leagueWidgetRotateTimers[timerId]);
   var page = 0;
-  var pageSize = 3;
-  var pageCount = Math.max(1, Math.ceil(recentEvents.length / pageSize));
+  var pageCount = Math.max(1, Math.ceil(events.length / pageSize));
   function renderPage() {
-    var slice = recentEvents.slice(page * pageSize, page * pageSize + pageSize);
-    listEl.innerHTML = slice.length ? slice.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">No recent games</li>';
+    var slice = events.slice(page * pageSize, page * pageSize + pageSize);
+    listEl.innerHTML = slice.length ? slice.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">' + emptyText + '</li>';
   }
   renderPage();
   if (pageCount > 1) {
-    leagueWidgetRotateTimers[widgetId] = setInterval(function () {
+    leagueWidgetRotateTimers[timerId] = setInterval(function () {
       page = (page + 1) % pageCount;
       renderPage();
     }, 6000);
@@ -3334,8 +3336,8 @@ async function loadLeagueWidget(cfg) {
       seenTeamIds[g.away.id] = true;
       return true;
     });
-    upcomingEl.innerHTML = upcoming.length ? upcoming.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">No upcoming games</li>';
-    startRecentRotation(cfg.id, data.recent || [], recentEl);
+    startRotation(cfg.id + '-upcoming', upcoming, upcomingEl, 5, 'No upcoming games');
+    startRotation(cfg.id + '-recent', data.recent || [], recentEl, 3, 'No recent games');
   } catch (err) {
     bodyEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Could not load.</p>';
   }
