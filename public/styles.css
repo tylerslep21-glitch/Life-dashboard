@@ -185,10 +185,14 @@
   .modules {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    /* A fixed-ish row height (not pure auto) so resizing a widget to h:2
-       means something predictable and consistent, rather than each row
-       sizing independently to whatever content happens to be in it. */
-    grid-auto-rows: minmax(200px, auto);
+    /* The old fixed 200px floor here applied to every row uniformly, which
+       is exactly why the locked week-nav widget (barely 3rem of real
+       content) always rendered with a huge block of empty space below it -
+       there was no way to make just one row shorter. The 200px-per-h floor
+       is now enforced per WIDGET instead, via each module's own min-height
+       (set in applyGridLayout(), dashboard.js), so a short widget's row can
+       actually be short. */
+    grid-auto-rows: auto;
     gap: 1.1rem;
   }
   @media (max-width: 900px) {
@@ -282,8 +286,10 @@
      to get from the old #finance-divider element. */
   .module[data-widget-id="week-nav"] {
     border-top: 3px dashed var(--border);
-    padding-top: 1.5rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
     margin-top: 0.6rem;
+    min-height: 0 !important; /* overrides the JS-set per-h floor - see applyGridLayout() */
   }
   .span-2 { grid-column: span 2; }
   .span-3 { grid-column: span 3; }
@@ -1452,4 +1458,24 @@
 }
 .league-game-teams img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
 .league-game-score { flex-shrink: 0; color: var(--muted); }
+/* League widgets get a hard height cap (applyGridLayout() in dashboard.js
+   sets max-height equal to the same per-h floor everything else uses as a
+   minimum) instead of growing to fit however many games are in the window -
+   the body scrolls internally so the card stays the size the grid gave it. */
+.module.league-module {
+  display: flex;
+  flex-direction: column;
+  /* Not overflow:hidden - the remove button (edit mode) intentionally pokes
+     slightly outside the card's own top-right corner and would get clipped.
+     The inner .league-widget-body scrolling is what actually keeps a long
+     game list from growing the card past its max-height. */
+}
+.module.league-module .module-head { flex-shrink: 0; }
+.league-widget-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
 

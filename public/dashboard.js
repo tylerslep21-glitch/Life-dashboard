@@ -2554,9 +2554,13 @@ function normalizeLayout(layout) {
 // skips writing that one widget's grid-column/row - used while it's being
 // actively dragged and is following the pointer via a raw transform
 // instead, so it doesn't visually snap to its old/new cell mid-drag.
+var ROW_UNIT_PX = 200; // matches the old grid-auto-rows floor, now applied per-widget instead of per-row - see styles.css
+
 function applyGridLayout(layout, excludeId) {
   var packed = normalizeLayout(packMissingPositions(layout));
   var placedIds = {};
+  var gridEl = document.querySelector('.modules');
+  var gap = gridEl ? (parseFloat(getComputedStyle(gridEl).gap) || 0) : 0;
   packed.forEach(function (w) {
     placedIds[w.id] = true;
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
@@ -2567,6 +2571,15 @@ function applyGridLayout(layout, excludeId) {
     }
     el.style.display = w.enabled ? '' : 'none';
     el.classList.toggle('widget-locked', w.id === LOCKED_WIDGET_ID);
+    // Every row used to get a hard 200px floor from the grid itself
+    // (grid-auto-rows) - that's now enforced per widget instead, so the
+    // locked week-nav widget (which overrides this back to 0 in CSS) can
+    // finally be shorter than everything else. League widgets additionally
+    // get a matching max-height so a long game list scrolls inside the
+    // card instead of growing it past its grid cell.
+    var cellHeight = (w.h * ROW_UNIT_PX + (w.h - 1) * gap) + 'px';
+    el.style.minHeight = cellHeight;
+    el.style.maxHeight = w.id.indexOf('league-') === 0 ? cellHeight : '';
   });
   WIDGET_REGISTRY.forEach(function (r) {
     if (placedIds[r.id]) return;
@@ -3310,7 +3323,17 @@ async function loadLeagueWidget(cfg) {
     var data = await getJSON('/api/sports/' + cfg.league + '/scoreboard?filter=' + encodeURIComponent(filter));
     var upcomingEl = document.getElementById(cfg.id + '-upcoming');
     var recentEl = document.getElementById(cfg.id + '-recent');
-    var upcoming = (data.upcoming || []).slice(0, 5);
+    // The fetch window covers the next ~10 days, so a team can legitimately
+    // have more than one game in it - only its soonest one is kept, so each
+    // team shows up once (in chronological order) instead of the list
+    // repeating a team for every game it has coming up.
+    var seenTeamIds = {};
+    var upcoming = (data.upcoming || []).filter(function (g) {
+      if (seenTeamIds[g.home.id] || seenTeamIds[g.away.id]) return false;
+      seenTeamIds[g.home.id] = true;
+      seenTeamIds[g.away.id] = true;
+      return true;
+    });
     upcomingEl.innerHTML = upcoming.length ? upcoming.map(renderLeagueGameRow).join('') : '<li style="color:var(--muted);font-size:0.78rem;">No upcoming games</li>';
     startRecentRotation(cfg.id, data.recent || [], recentEl);
   } catch (err) {
