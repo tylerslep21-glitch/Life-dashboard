@@ -64,7 +64,7 @@ function applyTheme(value) {
 }
 
 var retroEnabled = localStorage.getItem(RETRO_ENABLED_KEY) === 'true';
-activeThemeValue = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
+activeThemeValue = localStorage.getItem(RETRO_THEME_KEY) || 'default';
 retroSelect.value = activeThemeValue;
 applyTheme(activeThemeValue);
 if (retroEnabled) {
@@ -2024,7 +2024,13 @@ document.getElementById('confirm-delete-account-btn').addEventListener('click', 
 
 // ---- shared idle tracking (used by auto-reload below and auto-scroll further down) ----
 var ACTIVITY_IDLE_MS = 60 * 1000;
-var lastActivityTs = Date.now();
+// A reload triggered by the idle auto-reload below (not a manual/initial
+// load) means idle auto-scroll was already active going into it - resume
+// immediately instead of sitting still for another ACTIVITY_IDLE_MS, by
+// starting lastActivityTs already "stale" rather than at Date.now().
+var RESUMING_AFTER_IDLE_RELOAD_KEY = 'lifeDashboardResumingAfterIdleReload';
+var lastActivityTs = sessionStorage.getItem(RESUMING_AFTER_IDLE_RELOAD_KEY) ? 0 : Date.now();
+sessionStorage.removeItem(RESUMING_AFTER_IDLE_RELOAD_KEY);
 ['mousemove', 'mousedown', 'wheel', 'touchstart', 'keydown'].forEach(function (evt) {
   window.addEventListener(evt, function () { lastActivityTs = Date.now(); }, { passive: true });
 });
@@ -2036,6 +2042,7 @@ var lastActivityTs = Date.now();
 // in-progress tap/scroll doesn't get yanked out from under them.
 setInterval(function () {
   if (Date.now() - lastActivityTs < ACTIVITY_IDLE_MS) return;
+  sessionStorage.setItem(RESUMING_AFTER_IDLE_RELOAD_KEY, '1');
   location.reload();
 }, 6 * 60 * 1000);
 

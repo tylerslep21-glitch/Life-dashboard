@@ -1,63 +1,66 @@
+/* Default theme is deliberately grayscale/black-and-white - --good/--critical
+   stay as real green/red throughout, though, since those are functional
+   status colors (stale-agent warnings, critical pills), not decoration. */
 :root {
-    --ink: #4A2E3D;
-    --ink-soft: #7A5060;
-    --paper: #FFFBF3;
+    --ink: #171717;
+    --ink-soft: #4D4D4D;
+    --paper: #FAFAFA;
     --paper-raised: #FFFFFF;
-    --accent: #E8672E;
-    --accent-soft: #F2864F;
-    --muted: #A08670;
-    --border: rgba(74, 46, 61, 0.12);
-    --shadow: rgba(74, 46, 61, 0.07);
-    --skel-base: rgba(74, 46, 61, 0.08);
-    --skel-shine: rgba(74, 46, 61, 0.18);
+    --accent: #171717;
+    --accent-soft: #555555;
+    --muted: #8C8C8C;
+    --border: rgba(0, 0, 0, 0.12);
+    --shadow: rgba(0, 0, 0, 0.08);
+    --skel-base: rgba(0, 0, 0, 0.08);
+    --skel-shine: rgba(0, 0, 0, 0.16);
     --good: #0ca30c;
     --critical: #d03b3b;
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --ink: #F5E6D8;
-      --ink-soft: #D9BDAC;
-      --paper: #1A1A1A;
+      --ink: #F2F2F2;
+      --ink-soft: #BFBFBF;
+      --paper: #121212;
       --paper-raised: #000000;
-      --accent: #F2864F;
-      --accent-soft: #F2A66B;
-      --muted: #A98E7C;
-      --border: rgba(245, 230, 216, 0.12);
+      --accent: #F2F2F2;
+      --accent-soft: #C2C2C2;
+      --muted: #8F8F8F;
+      --border: rgba(255, 255, 255, 0.12);
       --shadow: rgba(0, 0, 0, 0.35);
-      --skel-base: rgba(245, 230, 216, 0.08);
-      --skel-shine: rgba(245, 230, 216, 0.2);
+      --skel-base: rgba(255, 255, 255, 0.08);
+      --skel-shine: rgba(255, 255, 255, 0.18);
       --good: #0ca30c;
       --critical: #e66767;
     }
   }
   :root[data-theme="dark"] {
-    --ink: #F5E6D8;
-    --ink-soft: #D9BDAC;
-    --paper: #1A1A1A;
+    --ink: #F2F2F2;
+    --ink-soft: #BFBFBF;
+    --paper: #121212;
     --paper-raised: #000000;
-    --accent: #F2864F;
-    --accent-soft: #F2A66B;
-    --muted: #A98E7C;
-    --border: rgba(245, 230, 216, 0.12);
+    --accent: #F2F2F2;
+    --accent-soft: #C2C2C2;
+    --muted: #8F8F8F;
+    --border: rgba(255, 255, 255, 0.12);
     --shadow: rgba(0, 0, 0, 0.35);
-    --skel-base: rgba(245, 230, 216, 0.08);
-    --skel-shine: rgba(245, 230, 216, 0.2);
+    --skel-base: rgba(255, 255, 255, 0.08);
+    --skel-shine: rgba(255, 255, 255, 0.18);
     --good: #0ca30c;
     --critical: #e66767;
   }
   :root[data-theme="light"] {
-    --ink: #4A2E3D;
-    --ink-soft: #7A5060;
-    --paper: #FFFBF3;
+    --ink: #171717;
+    --ink-soft: #4D4D4D;
+    --paper: #FAFAFA;
     --paper-raised: #FFFFFF;
-    --accent: #E8672E;
-    --accent-soft: #F2864F;
-    --muted: #A08670;
-    --border: rgba(74, 46, 61, 0.12);
-    --shadow: rgba(74, 46, 61, 0.07);
-    --skel-base: rgba(74, 46, 61, 0.08);
-    --skel-shine: rgba(74, 46, 61, 0.18);
+    --accent: #171717;
+    --accent-soft: #555555;
+    --muted: #8C8C8C;
+    --border: rgba(0, 0, 0, 0.12);
+    --shadow: rgba(0, 0, 0, 0.08);
+    --skel-base: rgba(0, 0, 0, 0.08);
+    --skel-shine: rgba(0, 0, 0, 0.16);
     --good: #0ca30c;
     --critical: #d03b3b;
   }
