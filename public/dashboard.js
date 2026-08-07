@@ -80,7 +80,7 @@ function buildLightsSvg(width, colors) {
   }).join('');
 
   return '<svg class="christmas-lights" xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="26" ' +
-    'viewBox="0 0 ' + width.toFixed(1) + ' 26" style="position:absolute;top:-20px;left:0;pointer-events:none;">' +
+    'viewBox="0 0 ' + width.toFixed(1) + ' 26" style="position:absolute;top:-14px;left:0;pointer-events:none;">' +
     '<defs><radialGradient id="' + gradId + '" cx="50%" cy="50%" r="50%">' + stops + '</radialGradient></defs>' +
     '<path d="' + path + '" stroke="' + colors.wire + '" stroke-width="1.6" fill="none"/>' +
     bulbs +
