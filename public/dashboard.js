@@ -423,10 +423,37 @@ function renderClock() {
 renderClock();
 setInterval(renderClock, 60000);
 
-// ---- theme: dark after sunset, light after sunrise, based on real location ----
+// ---- theme: dark after sunset, light after sunrise, based on real location -
+// unless overridden to always Day or always Night from Sign-in settings. ----
+var THEME_MODE_KEY = 'lifeDashboardThemeMode';
+var themeMode = localStorage.getItem(THEME_MODE_KEY) || 'auto';
 var sunTimesCache = null; // {date: 'YYYY-MM-DD', sunrise: Date, sunset: Date}
 
+// Applies a Day/Night mode choice immediately and persists it. 'auto' resumes
+// real sunrise/sunset tracking - either from an already-fetched cache, or by
+// (re)starting geolocation-based tracking if this is the first time auto has
+// run this session (e.g. switching back to Auto after a stretch on Day/Night).
+function applyThemeMode(mode) {
+  themeMode = mode;
+  localStorage.setItem(THEME_MODE_KEY, mode);
+  if (mode === 'day') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else if (mode === 'night') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else if (sunTimesCache) {
+    applyThemeFromSunTimes();
+  } else {
+    document.documentElement.removeAttribute('data-theme'); // OS preference until geolocation resolves
+    initSunTheme();
+  }
+  renderChristmasLights(); // bulb color palette depends on data-theme
+}
+
 function applyThemeFromSunTimes() {
+  // The sun-times watcher's setInterval keeps running in the background
+  // regardless of mode (there's no clean way to pause it once armed) - this
+  // guard is what actually stops it from fighting a forced Day/Night choice.
+  if (themeMode !== 'auto') return;
   if (!sunTimesCache) return;
   var now = new Date();
   var isDark = now < sunTimesCache.sunrise || now > sunTimesCache.sunset;
@@ -495,7 +522,19 @@ function initSunTheme() {
     function () { /* permission denied or unavailable - leave theme on OS default */ }
   );
 }
-initSunTheme();
+if (themeMode === 'day') {
+  document.documentElement.setAttribute('data-theme', 'light');
+} else if (themeMode === 'night') {
+  document.documentElement.setAttribute('data-theme', 'dark');
+} else {
+  initSunTheme();
+}
+
+var themeModeSelect = document.getElementById('theme-mode-select');
+themeModeSelect.value = themeMode;
+themeModeSelect.addEventListener('change', function () {
+  applyThemeMode(themeModeSelect.value);
+});
 
 // ---- helpers ----
 function fmtDollar(v, opts) {

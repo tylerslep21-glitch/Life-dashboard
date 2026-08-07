@@ -546,6 +546,21 @@
 <div class="modal-overlay" id="signin-modal-overlay">
   <div class="modal">
     <h2>Sign-in settings</h2>
+
+    <h2 style="margin-top: 0;">Appearance</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Day/Night controls light vs. dark colors, separately from the theme picker in the header.
+    </p>
+    <div class="field-group">
+      <label for="theme-mode-select">Day / Night</label>
+      <select id="theme-mode-select">
+        <option value="auto">Auto (based on your real sunrise/sunset)</option>
+        <option value="day">Always Day</option>
+        <option value="night">Always Night</option>
+      </select>
+    </div>
+
+    <h2>Touch ID / Face ID</h2>
     <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
       Registered Touch ID / Face ID devices for this dashboard.
     </p>
