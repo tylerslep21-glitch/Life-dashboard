@@ -14,22 +14,53 @@ var RETRO_THEME_KEY = 'lifeDashboardRetroTheme';
 var retroToggle = document.getElementById('toggle-retro');
 var retroSelect = document.getElementById('retro-theme-select');
 
-// 'default' isn't a real [data-season="..."] palette in retro.css - it means
-// "none of the seasonal palettes", so the plain :root colors from styles.css
-// apply, same as before seasonal themes existed. Applying it means removing
-// the attribute entirely rather than setting it to the literal string.
-function applySeason(season) {
-  if (season === 'default') {
-    document.documentElement.removeAttribute('data-season');
+// This account's saved custom themes (up to 3, server-side per-user - see
+// /api/me's custom_themes and routes/me.js). Populated once /api/me resolves
+// in loadWidgetLayout() below; empty until then.
+var customThemes = [];
+var activeThemeValue = null; // mirrors retroSelect.value: 'default' | a season name | 'custom:<id>'
+
+function findCustomTheme(id) {
+  return customThemes.find(function (t) { return t.id === id; });
+}
+
+// Applies any theme value: a built-in season name, 'default', or 'custom:<id>'.
+// Built-ins are palettes baked into retro.css (data-season="..."); custom
+// themes have arbitrary user-picked colors, so they're applied as inline CSS
+// custom properties instead - those always win over retro.css's attribute
+// selectors, which is why data-season is removed first (a leftover seasonal
+// palette must not fight a custom one for the same variables).
+function applyTheme(value) {
+  var root = document.documentElement;
+  if (typeof value === 'string' && value.indexOf('custom:') === 0) {
+    var theme = findCustomTheme(value.slice(7));
+    if (theme) {
+      root.removeAttribute('data-season');
+      root.style.setProperty('--accent', theme.main);
+      root.style.setProperty('--ink', theme.secondary1);
+      root.style.setProperty('--paper', theme.secondary2);
+      root.setAttribute('data-bg-pattern', theme.pattern || 'none');
+      return;
+    }
+    // Referenced theme no longer exists (e.g. deleted from another device
+    // before this one caught up) - fall through to plain Default below.
+    value = 'default';
+  }
+  root.style.removeProperty('--accent');
+  root.style.removeProperty('--ink');
+  root.style.removeProperty('--paper');
+  root.removeAttribute('data-bg-pattern');
+  if (value === 'default') {
+    root.removeAttribute('data-season');
   } else {
-    document.documentElement.setAttribute('data-season', season);
+    root.setAttribute('data-season', value);
   }
 }
 
 var retroEnabled = localStorage.getItem(RETRO_ENABLED_KEY) === 'true';
-var retroTheme = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
-retroSelect.value = retroTheme;
-applySeason(retroTheme);
+activeThemeValue = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
+retroSelect.value = activeThemeValue;
+applyTheme(activeThemeValue);
 if (retroEnabled) {
   document.documentElement.setAttribute('data-retro', 'on');
 }
@@ -46,10 +77,167 @@ retroToggle.addEventListener('click', function () {
 });
 
 retroSelect.addEventListener('change', function () {
-  applySeason(retroSelect.value);
-  localStorage.setItem(RETRO_THEME_KEY, retroSelect.value);
+  activeThemeValue = retroSelect.value;
+  applyTheme(activeThemeValue);
+  localStorage.setItem(RETRO_THEME_KEY, activeThemeValue);
   renderChristmasLights();
 });
+
+// ---- custom themes management modal ----
+var customThemesOverlay = document.getElementById('custom-themes-modal-overlay');
+var customThemeForm = document.getElementById('custom-theme-form');
+var customThemeStatus = document.getElementById('custom-theme-status');
+var editingThemeId = null; // null while creating a new theme, an id while editing one
+
+function renderCustomThemesList() {
+  var listEl = document.getElementById('custom-themes-list');
+  var addBtn = document.getElementById('add-custom-theme-btn');
+  if (!customThemes.length) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No custom themes yet.</p>';
+  } else {
+    listEl.innerHTML = customThemes.map(function (t) {
+      return (
+        '<div class="custom-theme-row" data-id="' + t.id + '">' +
+          '<span>' +
+            '<span class="custom-theme-swatches">' +
+              '<span class="custom-theme-swatch" style="background:' + t.main + ';"></span>' +
+              '<span class="custom-theme-swatch" style="background:' + t.secondary1 + ';"></span>' +
+              '<span class="custom-theme-swatch" style="background:' + t.secondary2 + ';"></span>' +
+            '</span>' +
+            t.name +
+          '</span>' +
+          '<span class="custom-theme-actions">' +
+            '<button type="button" class="btn btn-outline-only edit-custom-theme-btn" data-id="' + t.id + '">Edit</button>' +
+            '<button type="button" class="btn btn-outline-only delete-custom-theme-btn" data-id="' + t.id + '">Delete</button>' +
+          '</span>' +
+        '</div>'
+      );
+    }).join('');
+  }
+  addBtn.style.display = customThemes.length >= 3 ? 'none' : '';
+
+  listEl.querySelectorAll('.edit-custom-theme-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { openCustomThemeForm(btn.dataset.id); });
+  });
+  listEl.querySelectorAll('.delete-custom-theme-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { deleteCustomTheme(btn.dataset.id); });
+  });
+}
+
+function openCustomThemeForm(id) {
+  editingThemeId = id || null;
+  var theme = id ? findCustomTheme(id) : null;
+  document.getElementById('custom-theme-name-input').value = theme ? theme.name : '';
+  document.getElementById('custom-theme-main-input').value = theme ? theme.main : '#E8672E';
+  document.getElementById('custom-theme-secondary1-input').value = theme ? theme.secondary1 : '#4A2E3D';
+  document.getElementById('custom-theme-secondary2-input').value = theme ? theme.secondary2 : '#FFFBF3';
+  document.getElementById('custom-theme-pattern-input').value = theme ? (theme.pattern || 'none') : 'none';
+  customThemeStatus.textContent = '';
+  customThemeForm.style.display = 'block';
+}
+
+function closeCustomThemeForm() {
+  customThemeForm.style.display = 'none';
+  editingThemeId = null;
+}
+
+async function persistCustomThemes() {
+  var res = await fetch('/api/me/custom-themes', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ custom_themes: customThemes }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Could not save theme');
+}
+
+var BUILTIN_THEME_VALUES = ['default', 'tropical', 'christmas', 'summer', 'winter', 'spring', 'autumn'];
+
+function populateThemeSelectOptions() {
+  Array.from(retroSelect.querySelectorAll('option[data-custom]')).forEach(function (o) { o.remove(); });
+  customThemes.forEach(function (t) {
+    var opt = document.createElement('option');
+    opt.value = 'custom:' + t.id;
+    opt.textContent = '🎨 ' + t.name;
+    opt.setAttribute('data-custom', 'true');
+    retroSelect.appendChild(opt);
+  });
+  // Re-sync the visible selection now that custom options actually exist -
+  // at boot, activeThemeValue may have been a custom:<id> the <select>
+  // didn't have an <option> for yet.
+  if (BUILTIN_THEME_VALUES.indexOf(activeThemeValue) !== -1 || customThemes.some(function (t) { return 'custom:' + t.id === activeThemeValue; })) {
+    retroSelect.value = activeThemeValue;
+  }
+}
+
+document.getElementById('open-custom-themes').addEventListener('click', function () {
+  closeCustomThemeForm();
+  renderCustomThemesList();
+  customThemesOverlay.classList.add('open');
+});
+document.getElementById('cancel-custom-themes').addEventListener('click', function () {
+  customThemesOverlay.classList.remove('open');
+});
+customThemesOverlay.addEventListener('click', function (e) {
+  if (e.target === customThemesOverlay) customThemesOverlay.classList.remove('open');
+});
+document.getElementById('add-custom-theme-btn').addEventListener('click', function () {
+  openCustomThemeForm(null);
+});
+document.getElementById('cancel-custom-theme-form').addEventListener('click', function () {
+  closeCustomThemeForm();
+});
+
+customThemeForm.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var name = document.getElementById('custom-theme-name-input').value.trim();
+  if (!name) return;
+  var themeData = {
+    id: editingThemeId || ('c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+    name: name,
+    main: document.getElementById('custom-theme-main-input').value,
+    secondary1: document.getElementById('custom-theme-secondary1-input').value,
+    secondary2: document.getElementById('custom-theme-secondary2-input').value,
+    pattern: document.getElementById('custom-theme-pattern-input').value,
+  };
+  if (editingThemeId) {
+    customThemes = customThemes.map(function (t) { return t.id === editingThemeId ? themeData : t; });
+  } else {
+    if (customThemes.length >= 3) return;
+    customThemes.push(themeData);
+  }
+  try {
+    await persistCustomThemes();
+    populateThemeSelectOptions();
+    if (activeThemeValue === 'custom:' + themeData.id) applyTheme(activeThemeValue);
+    closeCustomThemeForm();
+    renderCustomThemesList();
+  } catch (err) {
+    customThemeStatus.textContent = err.message;
+    customThemeStatus.className = 'form-status error';
+  }
+});
+
+async function deleteCustomTheme(id) {
+  var wasActive = activeThemeValue === 'custom:' + id;
+  var previous = customThemes;
+  customThemes = customThemes.filter(function (t) { return t.id !== id; });
+  try {
+    await persistCustomThemes();
+  } catch (err) {
+    customThemes = previous; // best-effort rollback if the request failed
+    customThemeStatus.textContent = err.message;
+    customThemeStatus.className = 'form-status error';
+    return;
+  }
+  populateThemeSelectOptions();
+  if (wasActive) {
+    activeThemeValue = 'default';
+    retroSelect.value = 'default';
+    localStorage.setItem(RETRO_THEME_KEY, 'default');
+    applyTheme('default');
+  }
+  renderCustomThemesList();
+}
 
 // A CSS background-image can't do this: it either stretches to fill the
 // card (bulb spacing scales with card width - not "consistent") or tiles at
@@ -1888,6 +2076,9 @@ async function loadWidgetLayout() {
   try {
     var me = await getJSON('/api/me');
     isAdminUser = me.username === 'tslep';
+    customThemes = Array.isArray(me.custom_themes) ? me.custom_themes : [];
+    populateThemeSelectOptions();
+    applyTheme(activeThemeValue); // pick up real colors now that custom themes have loaded
     currentWidgetLayout = applyWidgetLayout(resolveWidgetLayout(me.widget_layout));
   } catch (err) {
     isAdminUser = false;
@@ -1895,19 +2086,32 @@ async function loadWidgetLayout() {
   }
 }
 
+var CATEGORY_LABEL = { 'non-financial': 'Everyday', financial: 'Financial' };
+
 function renderCustomizeList() {
   var list = document.getElementById('customize-widget-list');
   var byId = {};
   WIDGET_REGISTRY.forEach(function (r) { byId[r.id] = r.name; });
-  list.innerHTML = currentWidgetLayout.map(function (w) {
-    return (
+
+  var html = '';
+  currentWidgetLayout.forEach(function (w, i) {
+    var cat = WIDGET_CATEGORY[w.id] || 'non-financial';
+    var prevCat = i > 0 ? (WIDGET_CATEGORY[currentWidgetLayout[i - 1].id] || 'non-financial') : null;
+    if (i === 0) {
+      html += '<li class="customize-section-label">' + CATEGORY_LABEL[cat] + '</li>';
+    } else if (cat !== prevCat) {
+      html += '<li class="customize-breaker">Sections can’t be mixed together — drag a whole section above the other instead</li>';
+      html += '<li class="customize-section-label">' + CATEGORY_LABEL[cat] + '</li>';
+    }
+    html += (
       '<li class="todo-row" draggable="true" data-id="' + w.id + '">' +
         '<span class="todo-drag-handle">&#9776;</span>' +
         '<input type="checkbox" class="todo-checkbox widget-visible-checkbox"' + (w.enabled ? ' checked' : '') + '>' +
         '<span class="todo-text">' + (byId[w.id] || w.id) + '</span>' +
       '</li>'
     );
-  }).join('');
+  });
+  list.innerHTML = html;
 
   function persistLayoutFromDom() {
     var order = Array.from(list.querySelectorAll('.todo-row')).map(function (row) {

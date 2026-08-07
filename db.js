@@ -48,6 +48,13 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Up to 3 user-defined color themes (name + main/secondary1/secondary2 colors +
+-- background pattern), selectable alongside the built-in seasonal themes - see
+-- WIDGET_REGISTRY-adjacent theme code in dashboard.js. A plain default (empty
+-- array) column addition is safe to add directly with NOT NULL DEFAULT, unlike
+-- the user_id columns above which needed a real backfill first.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS custom_themes JSONB NOT NULL DEFAULT '[]';
+
 CREATE TABLE IF NOT EXISTS finance_entries (
   id SERIAL PRIMARY KEY,
   logged_at TIMESTAMPTZ NOT NULL DEFAULT now(),

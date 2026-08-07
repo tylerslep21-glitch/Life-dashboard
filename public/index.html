@@ -35,6 +35,7 @@
       <option value="spring">&#127800; Spring</option>
       <option value="autumn">&#127166; Autumn</option>
     </select>
+    <button type="button" class="icon-btn" id="open-custom-themes" aria-label="Custom themes">&#127912;</button>
     <h1></h1>
     <div class="byline">
       <span id="clock"></span>
@@ -383,6 +384,59 @@
       </div>
       <div class="form-status" id="todo-form-status"></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="custom-themes-modal-overlay">
+  <div class="modal">
+    <h2>Custom themes</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Up to 3 custom themes, just for your account.
+    </p>
+
+    <div id="custom-themes-list"></div>
+    <button type="button" class="btn btn-primary" id="add-custom-theme-btn" style="margin-top: 0.5rem;">
+      + New custom theme
+    </button>
+
+    <form id="custom-theme-form" style="display:none; margin-top: 1rem;">
+      <div class="field-group">
+        <label for="custom-theme-name-input">Name</label>
+        <input type="text" id="custom-theme-name-input" placeholder="e.g. Midnight" maxlength="30" required>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label for="custom-theme-main-input">Main color</label>
+          <input type="color" id="custom-theme-main-input" value="#E8672E">
+        </div>
+        <div class="field-group">
+          <label for="custom-theme-secondary1-input">Secondary 1</label>
+          <input type="color" id="custom-theme-secondary1-input" value="#4A2E3D">
+        </div>
+        <div class="field-group">
+          <label for="custom-theme-secondary2-input">Secondary 2</label>
+          <input type="color" id="custom-theme-secondary2-input" value="#FFFBF3">
+        </div>
+      </div>
+      <div class="field-group">
+        <label for="custom-theme-pattern-input">Background pattern</label>
+        <select id="custom-theme-pattern-input">
+          <option value="none">None</option>
+          <option value="dots">Dots</option>
+          <option value="stripes">Diagonal stripes</option>
+          <option value="grid">Grid</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-custom-theme-form">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save theme</button>
+      </div>
+    </form>
+
+    <p class="form-status" id="custom-theme-status"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="cancel-custom-themes">Close</button>
+    </div>
   </div>
 </div>
 
