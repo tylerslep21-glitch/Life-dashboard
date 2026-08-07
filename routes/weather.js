@@ -9,40 +9,43 @@ const GEOCODE_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 
 // WMO weather interpretation codes (the standard Open-Meteo's `weather_code`
-// uses) collapsed down to what this widget actually shows.
+// uses) collapsed down to what this widget actually shows. `icon` is a key
+// into the ICONS registry in dashboard.js (an inline SVG), not an emoji -
+// this app renders its own icon set instead of relying on the platform's
+// emoji font.
 const WEATHER_CODES = {
-  0: { description: 'Clear sky', icon: '☀️' },
-  1: { description: 'Mainly clear', icon: '🌤️' },
-  2: { description: 'Partly cloudy', icon: '⛅' },
-  3: { description: 'Overcast', icon: '☁️' },
-  45: { description: 'Fog', icon: '🌫️' },
-  48: { description: 'Fog', icon: '🌫️' },
-  51: { description: 'Light drizzle', icon: '🌦️' },
-  53: { description: 'Drizzle', icon: '🌦️' },
-  55: { description: 'Dense drizzle', icon: '🌦️' },
-  56: { description: 'Freezing drizzle', icon: '🌧️' },
-  57: { description: 'Freezing drizzle', icon: '🌧️' },
-  61: { description: 'Light rain', icon: '🌧️' },
-  63: { description: 'Rain', icon: '🌧️' },
-  65: { description: 'Heavy rain', icon: '🌧️' },
-  66: { description: 'Freezing rain', icon: '🌧️' },
-  67: { description: 'Freezing rain', icon: '🌧️' },
-  71: { description: 'Light snow', icon: '❄️' },
-  73: { description: 'Snow', icon: '❄️' },
-  75: { description: 'Heavy snow', icon: '❄️' },
-  77: { description: 'Snow grains', icon: '❄️' },
-  80: { description: 'Rain showers', icon: '🌦️' },
-  81: { description: 'Rain showers', icon: '🌦️' },
-  82: { description: 'Violent rain showers', icon: '🌧️' },
-  85: { description: 'Snow showers', icon: '🌨️' },
-  86: { description: 'Snow showers', icon: '🌨️' },
-  95: { description: 'Thunderstorm', icon: '⛈️' },
-  96: { description: 'Thunderstorm with hail', icon: '⛈️' },
-  99: { description: 'Thunderstorm with hail', icon: '⛈️' },
+  0: { description: 'Clear sky', icon: 'weather-clear' },
+  1: { description: 'Mainly clear', icon: 'weather-partly-cloudy' },
+  2: { description: 'Partly cloudy', icon: 'weather-partly-cloudy' },
+  3: { description: 'Overcast', icon: 'weather-cloudy' },
+  45: { description: 'Fog', icon: 'weather-fog' },
+  48: { description: 'Fog', icon: 'weather-fog' },
+  51: { description: 'Light drizzle', icon: 'weather-rain' },
+  53: { description: 'Drizzle', icon: 'weather-rain' },
+  55: { description: 'Dense drizzle', icon: 'weather-rain' },
+  56: { description: 'Freezing drizzle', icon: 'weather-rain' },
+  57: { description: 'Freezing drizzle', icon: 'weather-rain' },
+  61: { description: 'Light rain', icon: 'weather-rain' },
+  63: { description: 'Rain', icon: 'weather-rain' },
+  65: { description: 'Heavy rain', icon: 'weather-rain' },
+  66: { description: 'Freezing rain', icon: 'weather-rain' },
+  67: { description: 'Freezing rain', icon: 'weather-rain' },
+  71: { description: 'Light snow', icon: 'weather-snow' },
+  73: { description: 'Snow', icon: 'weather-snow' },
+  75: { description: 'Heavy snow', icon: 'weather-snow' },
+  77: { description: 'Snow grains', icon: 'weather-snow' },
+  80: { description: 'Rain showers', icon: 'weather-rain' },
+  81: { description: 'Rain showers', icon: 'weather-rain' },
+  82: { description: 'Violent rain showers', icon: 'weather-rain' },
+  85: { description: 'Snow showers', icon: 'weather-snow' },
+  86: { description: 'Snow showers', icon: 'weather-snow' },
+  95: { description: 'Thunderstorm', icon: 'weather-thunderstorm' },
+  96: { description: 'Thunderstorm with hail', icon: 'weather-thunderstorm' },
+  99: { description: 'Thunderstorm with hail', icon: 'weather-thunderstorm' },
 };
 
 function describeCode(code) {
-  return WEATHER_CODES[code] || { description: 'Unknown', icon: '🌡️' };
+  return WEATHER_CODES[code] || { description: 'Unknown', icon: 'weather-unknown' };
 }
 
 router.get('/search', async (req, res) => {

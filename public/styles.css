@@ -1170,3 +1170,17 @@
 }
 .notes-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* ---- Inline SVG icons (replacing emoji everywhere except the seasonal
+   theme picker's own options, which are decorative theme identifiers, not
+   UI chrome) - sized off the element's own font-size so the same markup
+   works at icon-btn scale (1rem) or widget scale (2.5rem+) without a
+   separate override per usage. ---- */
+.icon {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.15em;
+}
+.icon-btn .icon { width: 1rem; height: 1rem; }
+.pill .icon { width: 0.85em; height: 0.85em; margin-right: 0.15em; }
+

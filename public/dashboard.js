@@ -89,6 +89,46 @@ retroSelect.addEventListener('change', function () {
   renderChristmasLights();
 });
 
+// ---- inline SVG icon set (replaces emoji throughout the UI, except the
+// seasonal theme picker's own <option> emojis above - those are decorative
+// theme identifiers a native <select> can't render real icons for anyway). ----
+var ICONS = {
+  warning: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  'weather-clear': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.5 12H2M22 12h-2.5M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>',
+  'weather-partly-cloudy': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 2.5v1.3M8 12.2v1.3M2.5 8h1.3M12.9 3.1l-.9.9M3.1 12.9l.9-.9"/><path d="M9 20a4 4 0 1 1 .4-8 5.5 5.5 0 0 1 10.4 2A3.5 3.5 0 0 1 19 20Z"/></svg>',
+  'weather-cloudy': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 19a4 4 0 1 1 .4-8 5.5 5.5 0 0 1 10.4 2A3.5 3.5 0 0 1 16.5 19Z"/></svg>',
+  'weather-fog': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 9h11M4 13h16M4 17h13"/></svg>',
+  'weather-rain': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 14.5a4 4 0 1 1 .4-8 5.5 5.5 0 0 1 10.4 2 3.5 3.5 0 0 1-.8 6.9"/><path d="M8 17.5 7 20M12 17.5l-1 2.5M16 17.5l-1 2.5"/></svg>',
+  'weather-snow': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 14.5a4 4 0 1 1 .4-8 5.5 5.5 0 0 1 10.4 2 3.5 3.5 0 0 1-.8 6.9"/><path d="M8 18v.01M12 18v.01M16 18v.01M8 21v.01M12 21v.01M16 21v.01"/></svg>',
+  'weather-thunderstorm': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 13.5a4 4 0 1 1 .4-8 5.5 5.5 0 0 1 10.4 2 3.5 3.5 0 0 1-.8 6.9"/><path d="M13 14l-3 5h3l-2 4"/></svg>',
+  'weather-unknown': '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.8V5a2 2 0 1 1 4 0v9.8a3.5 3.5 0 1 1-4 0Z"/></svg>',
+};
+
+// Moon-phase icon: rather than 8 separate hand-drawn glyphs, this draws the
+// correct crescent/gibbous shape for any illumination fraction directly -
+// a fixed edge arc (which side is lit depends on waxing vs waning) plus a
+// "terminator" arc whose horizontal radius is R*cos(phase angle), the
+// standard construction for this shape (0 -> new moon, 0.25 -> quarter,
+// 0.5 -> full).
+function moonPhaseIcon(fraction) {
+  var R = 9, cx = 12, cy = 12;
+  var angle = fraction * 2 * Math.PI;
+  var rx = Math.abs(R * Math.cos(angle));
+  var waxing = fraction < 0.5;
+  var gibbous = fraction > 0.25 && fraction < 0.75;
+  var edgeSweep = waxing ? 1 : 0;
+  var termSweep = gibbous ? (waxing ? 0 : 1) : (waxing ? 1 : 0);
+  var d = 'M ' + cx + ' ' + (cy - R) +
+    ' A ' + R + ' ' + R + ' 0 0 ' + edgeSweep + ' ' + cx + ' ' + (cy + R) +
+    ' A ' + rx + ' ' + R + ' 0 0 ' + termSweep + ' ' + cx + ' ' + (cy - R) + ' Z';
+  return (
+    '<svg class="icon" viewBox="0 0 24 24">' +
+      '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
+      '<path d="' + d + '" fill="currentColor"/>' +
+    '</svg>'
+  );
+}
+
 // ---- custom themes management modal ----
 var customThemesOverlay = document.getElementById('custom-themes-modal-overlay');
 var customThemeForm = document.getElementById('custom-theme-form');
@@ -172,7 +212,9 @@ function populateThemeSelectOptions() {
   customThemes.forEach(function (t) {
     var opt = document.createElement('option');
     opt.value = 'custom:' + t.id;
-    opt.textContent = '🎨 ' + t.name;
+    // A native <select><option> can't render real icons, only text - so
+    // custom theme names show plain, unlike everywhere else in the UI.
+    opt.textContent = t.name;
     opt.setAttribute('data-custom', 'true');
     retroSelect.appendChild(opt);
   });
@@ -1528,7 +1570,7 @@ async function loadAgentTracker() {
       var pillColor = stale || statusLower.indexOf('error') !== -1 ? 'var(--critical)'
         : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
         : 'var(--good)';
-      var pillText = (stale ? '⚠ ' : '') + a.status_summary;
+      var pillText = (stale ? ICONS.warning : '') + a.status_summary;
       var lastRun = lastRunDate.toLocaleString(undefined, {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       });
@@ -2387,7 +2429,7 @@ async function loadWeather() {
     contentEl.innerHTML =
       '<p class="sync-stamp">' + data.label + '</p>' +
       '<div class="weather-main">' +
-        '<span class="weather-icon">' + data.current.icon + '</span>' +
+        '<span class="weather-icon">' + (ICONS[data.current.icon] || ICONS['weather-unknown']) + '</span>' +
         '<div>' +
           '<div class="weather-temp">' + data.current.temp + '&deg;F</div>' +
           '<div class="weather-desc">' + data.current.description + '</div>' +
@@ -2459,15 +2501,9 @@ document.getElementById('weather-search-form').addEventListener('submit', async 
 });
 
 // ---- Moon phase widget - pure calculation, no API needed ----
-var MOON_PHASES = [
-  { name: 'New moon', emoji: '🌑' },
-  { name: 'Waxing crescent', emoji: '🌒' },
-  { name: 'First quarter', emoji: '🌓' },
-  { name: 'Waxing gibbous', emoji: '🌔' },
-  { name: 'Full moon', emoji: '🌕' },
-  { name: 'Waning gibbous', emoji: '🌖' },
-  { name: 'Last quarter', emoji: '🌗' },
-  { name: 'Waning crescent', emoji: '🌘' },
+var MOON_PHASE_NAMES = [
+  'New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous',
+  'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent',
 ];
 
 function renderMoonPhase() {
@@ -2477,12 +2513,12 @@ function renderMoonPhase() {
   var age = daysSince % synodicMonth;
   if (age < 0) age += synodicMonth;
 
-  var phaseIndex = Math.floor((age / synodicMonth) * 8 + 0.5) % 8;
-  var phase = MOON_PHASES[phaseIndex];
-  var illumination = Math.round((1 - Math.cos((age / synodicMonth) * 2 * Math.PI)) / 2 * 100);
+  var fraction = age / synodicMonth;
+  var phaseIndex = Math.floor(fraction * 8 + 0.5) % 8;
+  var illumination = Math.round((1 - Math.cos(fraction * 2 * Math.PI)) / 2 * 100);
 
-  document.getElementById('moon-phase-emoji').textContent = phase.emoji;
-  document.getElementById('moon-phase-name').textContent = phase.name;
+  document.getElementById('moon-phase-emoji').innerHTML = moonPhaseIcon(fraction);
+  document.getElementById('moon-phase-name').textContent = MOON_PHASE_NAMES[phaseIndex];
   document.getElementById('moon-phase-illumination').textContent =
     illumination + '% illuminated · day ' + Math.floor(age) + ' of cycle';
 }
