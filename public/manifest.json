@@ -1,6 +1,6 @@
 {
-  "name": "Life Dashboard",
-  "short_name": "Dashboard",
+  "name": "Overview – Life Dashboard",
+  "short_name": "Overview",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1A1A1A",

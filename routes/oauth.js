@@ -81,12 +81,12 @@ router.post('/oauth/register', async (req, res) => {
 
 function renderAuthorizeForm({ error } = {}) {
   return `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authorize - Life Dashboard</title>
+<title>Authorize - Overview</title>
 <style>body{font-family:system-ui,sans-serif;max-width:360px;margin:80px auto;padding:0 20px}
 h1{font-size:1.1rem}input{width:100%;padding:10px;margin:12px 0;box-sizing:border-box;font-size:1rem}
 button{width:100%;padding:10px;font-size:1rem;cursor:pointer}.err{color:#c00;font-size:0.9rem}</style>
 </head><body>
-<h1>Authorize this connection to your Life Dashboard</h1>
+<h1>Authorize this connection to your Overview account</h1>
 <p>Enter your dashboard password to allow this connector access.</p>
 ${error ? `<p class="err">${error}</p>` : ''}
 <form method="POST">

@@ -115,7 +115,7 @@ router.post('/forgot-password', async (req, res) => {
       const resetUrl = `${getOrigin(req)}/reset-password.html?token=${token}`;
       sendEmail(
         email.toLowerCase(),
-        'Reset your Life Dashboard password',
+        'Reset your Overview password',
         `<p>Hi ${user.username},</p><p><a href="${resetUrl}">Click here to reset your password</a>. This link expires in 30 minutes and can only be used once.</p><p>If you didn't request this, you can ignore this email.</p>`
       ).catch(() => {});
     }
@@ -213,7 +213,7 @@ router.get('/webauthn/registration-options', async (req, res) => {
   const { rows: userRows } = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
   const { rows } = await pool.query('SELECT credential_id FROM webauthn_credentials WHERE user_id = $1', [userId]);
   const options = await generateRegistrationOptions({
-    rpName: 'Life Dashboard',
+    rpName: 'Overview',
     rpID: getRpID(req),
     userName: userRows[0] ? userRows[0].username : 'dashboard',
     attestationType: 'none',

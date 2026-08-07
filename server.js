@@ -47,6 +47,9 @@ const PUBLIC_FILES = new Set([
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png',
+  '/favicon.png',
+  '/favicon-64.png',
+  '/logo-email.png', // fetched unauthenticated by email clients rendering account emails
   '/terms.html',
   '/privacy.html',
   '/reset-password.html',
@@ -120,7 +123,7 @@ function withTimeout(promise, ms, label) {
 
 withTimeout(migrate(), 15000, 'DB migration')
   .then(() => {
-    app.listen(PORT, () => console.log(`Life Dashboard listening on :${PORT}`));
+    app.listen(PORT, () => console.log(`Overview listening on :${PORT}`));
   })
   .catch((err) => {
     console.error('Failed to run DB migration on boot:', err);
