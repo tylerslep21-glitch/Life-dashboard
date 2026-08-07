@@ -308,9 +308,24 @@ async function loadCalendar() {
     currentCalendarSources.forEach(function (s) {
       if (s.error) emptyWrap.innerHTML += '<div class="empty-state">' + s.label + ': ' + s.error + '</div>';
     });
+
+    renderCalendarQuickLinks();
   } catch (err) {
     document.getElementById('calendar-sync-stamp').textContent = 'Sync failed: ' + err.message;
   }
+}
+
+// One button per connected calendar, named after it, instead of one static
+// generic "Open Google Calendar" link - webcal: (not http/https) so tapping
+// hands off to the OS/browser's own calendar app to actually subscribe,
+// rather than downloading the raw .ics file.
+function renderCalendarQuickLinks() {
+  var wrap = document.getElementById('calendar-quick-links');
+  wrap.innerHTML = currentCalendarSources.map(function (s, i) {
+    var webcalUrl = s.ics_url.replace(/^https?:\/\//, 'webcal://');
+    var cls = i === 0 ? 'btn btn-primary' : 'btn btn-ghost';
+    return '<a class="' + cls + '" href="' + webcalUrl + '" target="_blank" rel="noopener">' + s.label + ' &nbsp;&rarr;</a>';
+  }).join('');
 }
 
 function renderCalendarManageList() {

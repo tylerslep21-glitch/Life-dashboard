@@ -16,9 +16,9 @@ async function fetchEvents(source) {
       }))
       .filter((e) => new Date(e.start).getTime() >= now - 24 * 60 * 60 * 1000)
       .sort((a, b) => new Date(a.start) - new Date(b.start));
-    return { id: source.id, label: source.label, events, error: null };
+    return { id: source.id, label: source.label, ics_url: source.ics_url, events, error: null };
   } catch (err) {
-    return { id: source.id, label: source.label, events: [], error: err.message };
+    return { id: source.id, label: source.label, ics_url: source.ics_url, events: [], error: err.message };
   }
 }
 
