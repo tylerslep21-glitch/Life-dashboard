@@ -183,6 +183,10 @@
   .span-3 { grid-column: span 3; }
   @media (max-width: 900px) {
     .span-3 { grid-column: span 2; }
+    /* At 2 columns, span-2 would take the whole row by itself (e.g. Calendar) -
+       drop to span-1 so it sits next to another module instead of stretching
+       alone with a lot of empty space. */
+    .span-2 { grid-column: span 1; }
   }
   @media (max-width: 600px) {
     .span-2, .span-3 { grid-column: span 1; }

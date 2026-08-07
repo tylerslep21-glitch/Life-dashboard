@@ -14,10 +14,22 @@ var RETRO_THEME_KEY = 'lifeDashboardRetroTheme';
 var retroToggle = document.getElementById('toggle-retro');
 var retroSelect = document.getElementById('retro-theme-select');
 
+// 'default' isn't a real [data-season="..."] palette in retro.css - it means
+// "none of the seasonal palettes", so the plain :root colors from styles.css
+// apply, same as before seasonal themes existed. Applying it means removing
+// the attribute entirely rather than setting it to the literal string.
+function applySeason(season) {
+  if (season === 'default') {
+    document.documentElement.removeAttribute('data-season');
+  } else {
+    document.documentElement.setAttribute('data-season', season);
+  }
+}
+
 var retroEnabled = localStorage.getItem(RETRO_ENABLED_KEY) === 'true';
 var retroTheme = localStorage.getItem(RETRO_THEME_KEY) || 'tropical';
 retroSelect.value = retroTheme;
-document.documentElement.setAttribute('data-season', retroTheme);
+applySeason(retroTheme);
 if (retroEnabled) {
   document.documentElement.setAttribute('data-retro', 'on');
 }
@@ -34,7 +46,7 @@ retroToggle.addEventListener('click', function () {
 });
 
 retroSelect.addEventListener('change', function () {
-  document.documentElement.setAttribute('data-season', retroSelect.value);
+  applySeason(retroSelect.value);
   localStorage.setItem(RETRO_THEME_KEY, retroSelect.value);
   renderChristmasLights();
 });
@@ -1728,36 +1740,43 @@ renderChristmasLights();
 // added here + a data-widget-id attribute - a user who never opens the
 // customize modal still sees them (missing-from-saved-layout defaults to
 // enabled, appended at the end - see applyWidgetLayout()).
+// adminOnly widgets only apply to the tslep account (Robinhood/agent/infra data is
+// tied specifically to that account server-side - see routes/robinhood.js) - other
+// accounts never see them in the customize list, and can't turn them on themselves.
 var WIDGET_REGISTRY = [
   { id: 'calendar', name: 'Calendar' },
   { id: 'subscriptions', name: 'Subscriptions' },
   { id: 'exams', name: 'Exams / Big Projects' },
   { id: 'countdowns', name: 'Countdowns' },
-  { id: 'agent-tracker', name: 'AI Agent Tracker' },
-  { id: 'railway', name: 'Railway' },
+  { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true },
+  { id: 'railway', name: 'Railway', adminOnly: true },
   { id: 'todo', name: 'To-Do' },
   { id: 'week-nav', name: 'Week navigator' },
   { id: 'finance-stats', name: 'Net worth / spent / income' },
   { id: 'net-worth-breakdown', name: 'Net worth breakdown' },
   { id: 'spending-by-category', name: 'Spending by category' },
   { id: 'bank', name: 'Bank (1yr)' },
-  { id: 'robinhood-agentic', name: 'Robinhood · Agentic' },
-  { id: 'robinhood-individual', name: 'Robinhood · Individual' },
+  { id: 'robinhood-agentic', name: 'Robinhood · Agentic', adminOnly: true },
+  { id: 'robinhood-individual', name: 'Robinhood · Individual', adminOnly: true },
   { id: 'status-row', name: 'Status row' },
 ];
 
 var currentWidgetLayout = null; // [{id, enabled}, ...] as loaded from /api/me, in saved order
+var isAdminUser = false; // set once /api/me resolves - see loadWidgetLayout()
 
 // Merges the saved layout with the canonical registry: known ids keep their
 // saved position/enabled state, anything missing (new widget, or a fresh
-// account with no saved layout yet) is appended as enabled.
+// account with no saved layout yet) is appended as enabled. adminOnly widgets
+// are dropped entirely for non-admin users, even if present in a saved layout
+// (e.g. from before this account existed as a real account).
 function resolveWidgetLayout(saved) {
+  var allowed = WIDGET_REGISTRY.filter(function (r) { return isAdminUser || !r.adminOnly; });
   var savedList = Array.isArray(saved) ? saved : [];
   var seen = {};
   var resolved = savedList
-    .filter(function (w) { return WIDGET_REGISTRY.some(function (r) { return r.id === w.id; }); })
+    .filter(function (w) { return allowed.some(function (r) { return r.id === w.id; }); })
     .map(function (w) { seen[w.id] = true; return { id: w.id, enabled: w.enabled !== false }; });
-  WIDGET_REGISTRY.forEach(function (r) {
+  allowed.forEach(function (r) {
     if (!seen[r.id]) resolved.push({ id: r.id, enabled: true });
   });
   return resolved;
@@ -1770,13 +1789,23 @@ function applyWidgetLayout(layout) {
     el.style.order = i;
     el.style.display = w.enabled ? '' : 'none';
   });
+  // adminOnly widgets are excluded from `layout` entirely for non-admin users -
+  // the loop above never reaches them, so force them hidden explicitly here.
+  if (!isAdminUser) {
+    WIDGET_REGISTRY.filter(function (r) { return r.adminOnly; }).forEach(function (r) {
+      var el = document.querySelector('[data-widget-id="' + r.id + '"]');
+      if (el) el.style.display = 'none';
+    });
+  }
 }
 
 async function loadWidgetLayout() {
   try {
     var me = await getJSON('/api/me');
+    isAdminUser = me.username === 'tslep';
     currentWidgetLayout = resolveWidgetLayout(me.widget_layout);
   } catch (err) {
+    isAdminUser = false;
     currentWidgetLayout = resolveWidgetLayout(null);
   }
   applyWidgetLayout(currentWidgetLayout);
