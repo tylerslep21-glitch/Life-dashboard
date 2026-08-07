@@ -929,6 +929,10 @@
   line-height: 1;
   flex: 0 0 auto;
   user-select: none;
+  /* Without this, iOS/iPadOS treats a finger-down-and-move on the handle as
+     a page scroll gesture instead of a drag - touch-action: none tells it
+     not to, so makeReorderable()'s pointer events actually get the drag. */
+  touch-action: none;
 }
 .todo-checkbox {
   flex: 0 0 auto;

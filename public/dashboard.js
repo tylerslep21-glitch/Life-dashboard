@@ -1632,9 +1632,53 @@ async function loadRailwayStatus() {
   }
 }
 
+// ---- shared drag-to-reorder for .todo-row lists (To-Do, Customize dashboard) ----
+// Built on Pointer Events, not native HTML5 drag-and-drop (`draggable` +
+// dragstart/dragover/drop) - the native API only ever fires for a mouse, not
+// a finger, so it silently doesn't work at all on iPad/touch. Pointer Events
+// fire the same way for mouse, touch, and pen, so this is one implementation
+// that actually works on both instead of a desktop-only one.
+function makeReorderable(listEl, onReordered) {
+  var draggingRow = null;
+
+  function rowUnderPoint(x, y) {
+    var el = document.elementFromPoint(x, y);
+    return el ? el.closest('.todo-row') : null;
+  }
+
+  function endDrag() {
+    if (!draggingRow) return;
+    draggingRow.classList.remove('dragging');
+    draggingRow = null;
+    onReordered();
+  }
+
+  listEl.addEventListener('pointermove', function (e) {
+    if (!draggingRow) return;
+    e.preventDefault();
+    var target = rowUnderPoint(e.clientX, e.clientY);
+    if (!target || target === draggingRow || !listEl.contains(target)) return;
+    var rect = target.getBoundingClientRect();
+    var before = (e.clientY - rect.top) < rect.height / 2;
+    listEl.insertBefore(draggingRow, before ? target : target.nextSibling);
+  });
+  listEl.addEventListener('pointerup', endDrag);
+  listEl.addEventListener('pointercancel', endDrag);
+
+  listEl.querySelectorAll('.todo-row').forEach(function (row) {
+    var handle = row.querySelector('.todo-drag-handle');
+    if (!handle) return;
+    handle.addEventListener('pointerdown', function (e) {
+      draggingRow = row;
+      row.classList.add('dragging');
+      try { handle.setPointerCapture(e.pointerId); } catch (err) { /* not supported - drag still works via elementFromPoint */ }
+      e.preventDefault();
+    });
+  });
+}
+
 // ---- To-Do list (drag to reorder, check off, disappears an hour after checking) ----
 var currentTodos = [];
-var draggedTodoId = null;
 
 async function loadTodos() {
   try {
@@ -1654,7 +1698,7 @@ function renderTodosList() {
   list.innerHTML = currentTodos.map(function (t) {
     var checked = !!t.checked_at;
     return (
-      '<li class="todo-row' + (checked ? ' checked' : '') + '" draggable="true" data-id="' + t.id + '">' +
+      '<li class="todo-row' + (checked ? ' checked' : '') + '" data-id="' + t.id + '">' +
         '<span class="todo-drag-handle">&#9776;</span>' +
         '<input type="checkbox" class="todo-checkbox"' + (checked ? ' checked' : '') + '>' +
         '<span class="todo-text">' + t.text + '</span>' +
@@ -1675,30 +1719,12 @@ function renderTodosList() {
     });
   });
 
-  list.querySelectorAll('.todo-row').forEach(function (row) {
-    row.addEventListener('dragstart', function () {
-      draggedTodoId = row.dataset.id;
-      row.classList.add('dragging');
-    });
-    row.addEventListener('dragend', function () {
-      row.classList.remove('dragging');
-    });
-    row.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      var dragging = list.querySelector('.dragging');
-      if (!dragging || dragging === row) return;
-      var rect = row.getBoundingClientRect();
-      var before = (e.clientY - rect.top) < rect.height / 2;
-      list.insertBefore(dragging, before ? row : row.nextSibling);
-    });
-    row.addEventListener('drop', async function (e) {
-      e.preventDefault();
-      var order = Array.from(list.querySelectorAll('.todo-row')).map(function (r) { return Number(r.dataset.id); });
-      await fetch('/api/todos/reorder', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ order: order }),
-      });
+  makeReorderable(list, async function () {
+    var order = Array.from(list.querySelectorAll('.todo-row')).map(function (r) { return Number(r.dataset.id); });
+    await fetch('/api/todos/reorder', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order: order }),
     });
   });
 }
@@ -2317,7 +2343,7 @@ function renderCustomizeList() {
       html += '<li class="customize-section-label">' + CATEGORY_LABEL[cat] + '</li>';
     }
     html += (
-      '<li class="todo-row" draggable="true" data-id="' + w.id + '">' +
+      '<li class="todo-row" data-id="' + w.id + '">' +
         '<span class="todo-drag-handle">&#9776;</span>' +
         '<input type="checkbox" class="todo-checkbox widget-visible-checkbox"' + (w.enabled ? ' checked' : '') + '>' +
         '<span class="todo-text">' + (byId[w.id] || w.id) + '</span>' +
@@ -2348,26 +2374,7 @@ function renderCustomizeList() {
     cb.addEventListener('change', persistLayoutFromDom);
   });
 
-  list.querySelectorAll('.todo-row').forEach(function (row) {
-    row.addEventListener('dragstart', function () {
-      row.classList.add('dragging');
-    });
-    row.addEventListener('dragend', function () {
-      row.classList.remove('dragging');
-    });
-    row.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      var dragging = list.querySelector('.dragging');
-      if (!dragging || dragging === row) return;
-      var rect = row.getBoundingClientRect();
-      var before = (e.clientY - rect.top) < rect.height / 2;
-      list.insertBefore(dragging, before ? row : row.nextSibling);
-    });
-    row.addEventListener('drop', function (e) {
-      e.preventDefault();
-      persistLayoutFromDom();
-    });
-  });
+  makeReorderable(list, persistLayoutFromDom);
 }
 
 var customizeOverlay = document.getElementById('customize-modal-overlay');
