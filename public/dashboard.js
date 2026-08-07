@@ -40,6 +40,11 @@ function applyTheme(value) {
       root.style.setProperty('--ink', theme.secondary1);
       root.style.setProperty('--paper', theme.secondary2);
       root.setAttribute('data-bg-pattern', theme.pattern || 'none');
+      if (theme.pattern === 'image' && theme.image) {
+        root.style.setProperty('--custom-bg-image', 'url("' + theme.image + '")');
+      } else {
+        root.style.removeProperty('--custom-bg-image');
+      }
       return;
     }
     // Referenced theme no longer exists (e.g. deleted from another device
@@ -49,6 +54,7 @@ function applyTheme(value) {
   root.style.removeProperty('--accent');
   root.style.removeProperty('--ink');
   root.style.removeProperty('--paper');
+  root.style.removeProperty('--custom-bg-image');
   root.removeAttribute('data-bg-pattern');
   if (value === 'default') {
     root.removeAttribute('data-season');
@@ -124,6 +130,10 @@ function renderCustomThemesList() {
   });
 }
 
+document.getElementById('custom-theme-pattern-input').addEventListener('change', function () {
+  document.getElementById('custom-theme-image-field').style.display = this.value === 'image' ? 'block' : 'none';
+});
+
 function openCustomThemeForm(id) {
   editingThemeId = id || null;
   var theme = id ? findCustomTheme(id) : null;
@@ -131,7 +141,12 @@ function openCustomThemeForm(id) {
   document.getElementById('custom-theme-main-input').value = theme ? theme.main : '#E8672E';
   document.getElementById('custom-theme-secondary1-input').value = theme ? theme.secondary1 : '#4A2E3D';
   document.getElementById('custom-theme-secondary2-input').value = theme ? theme.secondary2 : '#FFFBF3';
-  document.getElementById('custom-theme-pattern-input').value = theme ? (theme.pattern || 'none') : 'none';
+  var pattern = theme ? (theme.pattern || 'none') : 'none';
+  document.getElementById('custom-theme-pattern-input').value = pattern;
+  document.getElementById('custom-theme-image-input').value = ''; // a file input can't be prefilled
+  document.getElementById('custom-theme-image-field').style.display = pattern === 'image' ? 'block' : 'none';
+  document.getElementById('custom-theme-image-current').textContent =
+    theme && theme.image ? 'An image is already saved - choose a new file to replace it.' : '';
   customThemeStatus.textContent = '';
   customThemeForm.style.display = 'block';
 }
@@ -191,13 +206,47 @@ customThemeForm.addEventListener('submit', async function (e) {
   e.preventDefault();
   var name = document.getElementById('custom-theme-name-input').value.trim();
   if (!name) return;
+  var pattern = document.getElementById('custom-theme-pattern-input').value;
+
+  // Background image: reuse whatever was already saved unless a new file was
+  // picked (a file input can't be prefilled, so "leave it alone" is the
+  // default when editing rather than "clear it").
+  var existingTheme = editingThemeId ? findCustomTheme(editingThemeId) : null;
+  var image = existingTheme ? existingTheme.image : null;
+  if (pattern === 'image') {
+    var fileInput = document.getElementById('custom-theme-image-input');
+    if (fileInput.files && fileInput.files[0]) {
+      var file = fileInput.files[0];
+      if (file.size > 1 * 1024 * 1024) {
+        customThemeStatus.textContent = 'Image is too large (max 1MB).';
+        customThemeStatus.className = 'form-status error';
+        return;
+      }
+      try {
+        image = await readFileAsDataURL(file);
+      } catch (err) {
+        customThemeStatus.textContent = 'Failed to read image file.';
+        customThemeStatus.className = 'form-status error';
+        return;
+      }
+    }
+    if (!image) {
+      customThemeStatus.textContent = 'Choose an image to use as the background pattern.';
+      customThemeStatus.className = 'form-status error';
+      return;
+    }
+  } else {
+    image = null;
+  }
+
   var themeData = {
     id: editingThemeId || ('c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
     name: name,
     main: document.getElementById('custom-theme-main-input').value,
     secondary1: document.getElementById('custom-theme-secondary1-input').value,
     secondary2: document.getElementById('custom-theme-secondary2-input').value,
-    pattern: document.getElementById('custom-theme-pattern-input').value,
+    pattern: pattern,
+    image: image,
   };
   if (editingThemeId) {
     customThemes = customThemes.map(function (t) { return t.id === editingThemeId ? themeData : t; });

@@ -425,7 +425,13 @@
           <option value="dots">Dots</option>
           <option value="stripes">Diagonal stripes</option>
           <option value="grid">Grid</option>
+          <option value="image">Image (upload)</option>
         </select>
+      </div>
+      <div class="field-group" id="custom-theme-image-field" style="display:none;">
+        <label for="custom-theme-image-input">Background image (max 1MB)</label>
+        <input type="file" id="custom-theme-image-input" accept="image/*">
+        <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem;" id="custom-theme-image-current"></p>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline-only" id="cancel-custom-theme-form">Cancel</button>

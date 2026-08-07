@@ -1022,6 +1022,23 @@
     repeating-linear-gradient(90deg, var(--accent) 0, var(--accent) 1px, transparent 1px, transparent 24px);
   opacity: 0.07;
 }
+/* User-uploaded image (--custom-bg-image is a url(...) set inline by
+   applyTheme() in dashboard.js, since it's arbitrary per-theme data, not a
+   fixed value a plain selector could carry). Full-bleed and low-opacity
+   like a watermark rather than tiled - a photo tiled at a small size just
+   looks like noise, unlike the abstract patterns above. */
+:root:not([data-season])[data-bg-pattern="image"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image: var(--custom-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+}
 
 .custom-theme-row {
   display: flex;
