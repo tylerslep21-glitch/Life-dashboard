@@ -1437,7 +1437,11 @@ async function renderWebauthnCredentialsList() {
   var listEl = document.getElementById('webauthn-credentials-list');
   listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Loading&hellip;</p>';
   try {
-    var res = await fetch('/api/auth/webauthn/credentials');
+    // no-store - unlike other API calls in this file, this one skipped the
+    // getJSON() helper (which always sets this), so the browser was free to
+    // serve a cached response from before you'd signed in, or from a
+    // different tenant's session, regardless of what's actually true now.
+    var res = await fetch('/api/auth/webauthn/credentials', { cache: 'no-store' });
     var creds = await res.json();
     if (!creds.length) {
       listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No devices registered yet.</p>';

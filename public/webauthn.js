@@ -18,7 +18,10 @@ function bufferToB64url(buf) {
 }
 
 async function registerTouchId(deviceLabel) {
-  const optionsRes = await fetch('/api/auth/webauthn/registration-options');
+  // no-store - a fresh, single-use challenge every time; a cached one would
+  // either be stale (server no longer has it as the pending challenge) or,
+  // worse, silently belong to a different tenant's session.
+  const optionsRes = await fetch('/api/auth/webauthn/registration-options', { cache: 'no-store' });
   if (!optionsRes.ok) throw new Error((await optionsRes.json()).error || 'Could not start registration');
   const options = await optionsRes.json();
 
@@ -53,7 +56,10 @@ async function registerTouchId(deviceLabel) {
 }
 
 async function signInWithTouchId() {
-  const optionsRes = await fetch('/api/auth/webauthn/authentication-options');
+  // no-store - same reasoning as registerTouchId() above: a fresh challenge
+  // every time, and this one in particular spans every tenant's credentials,
+  // so a stale cached copy could offer devices that no longer apply.
+  const optionsRes = await fetch('/api/auth/webauthn/authentication-options', { cache: 'no-store' });
   if (!optionsRes.ok) throw new Error((await optionsRes.json()).error || 'No Touch ID device registered yet');
   const options = await optionsRes.json();
 
