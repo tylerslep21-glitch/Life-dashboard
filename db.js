@@ -270,6 +270,20 @@ CREATE TABLE IF NOT EXISTS app_meta (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- Self-hosted error monitoring (see lib/errorLog.js) - not app-specific data,
+-- so deliberately not scoped by user_id; only the admin (tslep) account can
+-- read it, enforced server-side in routes/errors.js, not just hidden by the
+-- frontend's adminOnly widget convention. source distinguishes an uncaught
+-- server exception from a reported browser-side JS error.
+CREATE TABLE IF NOT EXISTS error_log (
+  id SERIAL PRIMARY KEY,
+  source TEXT NOT NULL DEFAULT 'server',
+  message TEXT NOT NULL,
+  stack TEXT,
+  context JSONB,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 `;
 
 // One-time carry-over of the old env-var calendar config into the new

@@ -1,3 +1,26 @@
+// ---- client-side error reporting (feeds the admin-only Errors widget) ----
+// Armed first, before anything else runs, so it catches as much as possible.
+// Capped per page load so a tight error loop can't flood error_log or spam
+// network requests - 20 is plenty to diagnose a real problem from.
+var clientErrorReportCount = 0;
+var CLIENT_ERROR_REPORT_MAX = 20;
+function reportClientError(message, stack) {
+  if (clientErrorReportCount >= CLIENT_ERROR_REPORT_MAX) return;
+  clientErrorReportCount++;
+  fetch('/api/errors/client', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: String(message).slice(0, 2000), stack: stack ? String(stack).slice(0, 8000) : null, url: window.location.href }),
+  }).catch(function () { /* nothing further to do if reporting itself fails */ });
+}
+window.addEventListener('error', function (e) {
+  reportClientError(e.message, e.error && e.error.stack);
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var reason = e.reason;
+  reportClientError(reason && reason.message ? reason.message : String(reason), reason && reason.stack);
+});
+
 // ---- seasonal theme + retro style picker ----
 // Applied first, before anything else runs, so a saved preference doesn't
 // flash the default theme for a moment before switching over.
@@ -2225,6 +2248,7 @@ var WIDGET_REGISTRY = [
   { id: 'countdowns', name: 'Countdowns' },
   { id: 'agent-tracker', name: 'AI Agent Tracker', adminOnly: true },
   { id: 'railway', name: 'Railway', adminOnly: true },
+  { id: 'errors', name: 'Errors', adminOnly: true },
   { id: 'todo', name: 'To-Do' },
   { id: 'slideshow', name: 'Photos' },
   { id: 'weather', name: 'Weather' },
@@ -2256,6 +2280,7 @@ var WIDGET_CATEGORY = {
   exams: 'non-financial',
   countdowns: 'non-financial',
   'agent-tracker': 'non-financial',
+  errors: 'non-financial',
   railway: 'non-financial',
   todo: 'non-financial',
   slideshow: 'non-financial',
@@ -2703,6 +2728,45 @@ document.getElementById('notes-textarea').addEventListener('input', function () 
   }, 800);
 });
 
+// ---- Errors widget (admin-only - see routes/errors.js's server-side check) ----
+function timeAgo(iso) {
+  var diffMs = Date.now() - new Date(iso).getTime();
+  var mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  var hours = Math.round(mins / 60);
+  if (hours < 24) return hours + 'h ago';
+  return Math.round(hours / 24) + 'd ago';
+}
+
+async function loadErrors() {
+  var list = document.getElementById('errors-list');
+  try {
+    var errors = await getJSON('/api/errors?limit=20');
+    if (!errors.length) {
+      list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">No errors logged.</li>';
+      return;
+    }
+    list.innerHTML = errors.map(function (e) {
+      return (
+        '<li style="display:block;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;">' +
+            '<span style="font-weight:600;font-size:0.82rem;">[' + e.source + '] ' + e.message + '</span>' +
+            '<span style="font-size:0.72rem;color:var(--muted);white-space:nowrap;">' + timeAgo(e.occurred_at) + '</span>' +
+          '</div>' +
+        '</li>'
+      );
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">Could not load.</li>';
+  }
+}
+
+document.getElementById('clear-errors-btn').addEventListener('click', async function () {
+  await fetch('/api/errors', { method: 'DELETE' });
+  loadErrors();
+});
+
 // ---- boot ----
 loadTicker();
 loadCalendar();
@@ -2713,7 +2777,9 @@ loadTodos();
 loadFinanceAndRobinhood();
 loadAgentTracker();
 loadRailwayStatus();
-loadWidgetLayout();
+loadWidgetLayout().then(function () {
+  if (isAdminUser) loadErrors();
+});
 loadSlideshow();
 loadWeather();
 renderMoonPhase();

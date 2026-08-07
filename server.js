@@ -3,6 +3,7 @@ const path = require('path');
 const { migrate, pool } = require('./db');
 const { hasValidSession, hasValidBasicAuth } = require('./lib/auth');
 const { handleMcpRequest } = require('./lib/mcp-server');
+const { logError } = require('./lib/errorLog');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,25 @@ if (!process.env.DATA_ENCRYPTION_KEY) {
   console.error('FATAL: DATA_ENCRYPTION_KEY env var is not set - finance/Robinhood writes would fail at runtime.');
   process.exit(1);
 }
+
+// Self-hosted error monitoring (see lib/errorLog.js, routes/errors.js, and the
+// admin-only Errors widget on the dashboard). Most routes in this app are
+// `async (req, res) => {...}` without their own try/catch, and Express 4
+// doesn't route a rejected promise from an async handler to error-handling
+// middleware on its own - it surfaces here, at the process level, instead.
+// That means a request whose handler throws will still hang without a
+// response (a pre-existing behavior this doesn't change), but the error
+// itself is now captured for visibility instead of silently vanishing into
+// the Railway logs.
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+  logError('server', err.message, err.stack);
+});
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  console.error('Unhandled rejection:', err);
+  logError('server', err.message, err.stack);
+});
 
 // Railway terminates TLS and forwards plain HTTP internally - without trusting the proxy,
 // req.protocol always reports 'http', which breaks WebAuthn's strict origin check (it
@@ -109,9 +129,22 @@ app.use('/api/ticker', require('./routes/ticker'));
 app.use('/api/me', require('./routes/me'));
 app.use('/api/slideshow', require('./routes/slideshow'));
 app.use('/api/weather', require('./routes/weather'));
+app.use('/api/errors', require('./routes/errors'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Catches synchronous throws and explicit next(err) calls (the
+// process-level handlers above are what catch async/rejected-promise
+// errors - see the comment near the top of this file). Must be registered
+// after every other app.use()/route - Express identifies error middleware
+// by its 4-argument signature, not by where next() sends it.
+app.use((err, req, res, next) => {
+  console.error('Request error:', err);
+  logError('server', err.message, err.stack, { path: req.path, method: req.method });
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 function withTimeout(promise, ms, label) {
