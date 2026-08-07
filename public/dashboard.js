@@ -36,9 +36,15 @@ function applyTheme(value) {
     var theme = findCustomTheme(value.slice(7));
     if (theme) {
       root.removeAttribute('data-season');
+      // All 4 colors set inline, unconditionally - deliberately NOT gated on
+      // data-theme (day/night). A custom theme is exactly the colors the
+      // user picked, always; --paper-raised specifically is what widget/
+      // card backgrounds use, and without setting it here it would keep
+      // flipping between the day/night stylesheet values underneath.
       root.style.setProperty('--accent', theme.main);
       root.style.setProperty('--ink', theme.secondary1);
       root.style.setProperty('--paper', theme.secondary2);
+      root.style.setProperty('--paper-raised', theme.widgetBg || theme.secondary2);
       root.setAttribute('data-bg-pattern', theme.pattern || 'none');
       if (theme.pattern === 'image' && theme.image) {
         root.style.setProperty('--custom-bg-image', 'url("' + theme.image + '")');
@@ -54,6 +60,7 @@ function applyTheme(value) {
   root.style.removeProperty('--accent');
   root.style.removeProperty('--ink');
   root.style.removeProperty('--paper');
+  root.style.removeProperty('--paper-raised');
   root.style.removeProperty('--custom-bg-image');
   root.removeAttribute('data-bg-pattern');
   if (value === 'default') {
@@ -149,6 +156,7 @@ function renderCustomThemesList() {
               '<span class="custom-theme-swatch" style="background:' + t.main + ';"></span>' +
               '<span class="custom-theme-swatch" style="background:' + t.secondary1 + ';"></span>' +
               '<span class="custom-theme-swatch" style="background:' + t.secondary2 + ';"></span>' +
+              '<span class="custom-theme-swatch" style="background:' + (t.widgetBg || t.secondary2) + ';"></span>' +
             '</span>' +
             t.name +
           '</span>' +
@@ -181,6 +189,7 @@ function openCustomThemeForm(id) {
   document.getElementById('custom-theme-main-input').value = theme ? theme.main : '#E8672E';
   document.getElementById('custom-theme-secondary1-input').value = theme ? theme.secondary1 : '#4A2E3D';
   document.getElementById('custom-theme-secondary2-input').value = theme ? theme.secondary2 : '#FFFBF3';
+  document.getElementById('custom-theme-widget-bg-input').value = theme ? (theme.widgetBg || theme.secondary2) : '#FFFFFF';
   var pattern = theme ? (theme.pattern || 'none') : 'none';
   document.getElementById('custom-theme-pattern-input').value = pattern;
   document.getElementById('custom-theme-image-input').value = ''; // a file input can't be prefilled
@@ -287,6 +296,7 @@ customThemeForm.addEventListener('submit', async function (e) {
     main: document.getElementById('custom-theme-main-input').value,
     secondary1: document.getElementById('custom-theme-secondary1-input').value,
     secondary2: document.getElementById('custom-theme-secondary2-input').value,
+    widgetBg: document.getElementById('custom-theme-widget-bg-input').value,
     pattern: pattern,
     image: image,
   };
