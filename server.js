@@ -130,6 +130,7 @@ app.use('/api/me', require('./routes/me'));
 app.use('/api/slideshow', require('./routes/slideshow'));
 app.use('/api/weather', require('./routes/weather'));
 app.use('/api/errors', require('./routes/errors'));
+app.use('/api/sports', require('./routes/sports'));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

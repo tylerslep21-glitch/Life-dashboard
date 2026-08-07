@@ -284,6 +284,23 @@ CREATE TABLE IF NOT EXISTS error_log (
   context JSONB,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Favorited teams for the Sports widget (see routes/sports.js) - league is
+-- ESPN's own slug for it (e.g. 'football/nfl', 'basketball/mens-college-basketball')
+-- since that's exactly what's needed to call their API back for this team,
+-- not a value this app invents itself. team_name/team_logo are cached at
+-- favoriting time purely so the widget can render immediately without an
+-- extra round trip - they're display-only, never used to identify the team.
+CREATE TABLE IF NOT EXISTS favorite_teams (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  league TEXT NOT NULL,
+  team_id TEXT NOT NULL,
+  team_name TEXT NOT NULL,
+  team_logo TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, league, team_id)
+);
 `;
 
 // One-time carry-over of the old env-var calendar config into the new

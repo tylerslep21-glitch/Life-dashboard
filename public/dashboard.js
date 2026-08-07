@@ -2286,6 +2286,7 @@ var WIDGET_REGISTRY = [
   { id: 'todo', name: 'To-Do' },
   { id: 'slideshow', name: 'Photos' },
   { id: 'weather', name: 'Weather' },
+  { id: 'sports', name: 'Sports' },
   { id: 'moon-phase', name: 'Moon phase' },
   { id: 'notes', name: 'Notes' },
   { id: 'week-nav', name: 'Week navigator' },
@@ -2319,6 +2320,7 @@ var WIDGET_CATEGORY = {
   todo: 'non-financial',
   slideshow: 'non-financial',
   weather: 'non-financial',
+  sports: 'non-financial',
   'moon-phase': 'non-financial',
   notes: 'non-financial',
   'week-nav': 'financial',
@@ -2360,23 +2362,25 @@ function normalizeGroupedOrder(list) {
     : byCategory['non-financial'].concat(byCategory.financial);
 }
 
-// Merges the saved layout with the canonical registry: known ids keep their
-// saved position/enabled state, anything missing (new widget, or a fresh
-// account with no saved layout yet) is appended as enabled. adminOnly widgets
-// are dropped entirely for non-admin users, even if present in a saved layout
-// (e.g. from before this account existed as a real account). Not normalized
-// yet - applyWidgetLayout() does that and returns the canonical order.
+// NULL (no saved layout at all - true for every account that existed before
+// per-widget layout did) means "all widgets, enabled" for backward
+// compatibility - nobody's dashboard silently went blank the day this
+// shipped. An actual saved array, even an empty one, is taken literally: a
+// brand new account starts with widget_layout explicitly set to [] (see
+// signup in routes/auth.js) precisely so it renders as a deliberately blank
+// dashboard instead of everything-on, and widgets missing from a real saved
+// array are simply not placed - they show up in the edit-mode "add widget"
+// gallery instead of being silently auto-added. adminOnly widgets are
+// dropped entirely for non-admin users either way. Not normalized yet -
+// applyWidgetLayout() does that and returns the canonical order.
 function resolveWidgetLayout(saved) {
   var allowed = WIDGET_REGISTRY.filter(function (r) { return isAdminUser || !r.adminOnly; });
-  var savedList = Array.isArray(saved) ? saved : [];
-  var seen = {};
-  var resolved = savedList
+  if (!Array.isArray(saved)) {
+    return allowed.map(function (r) { return { id: r.id, enabled: true }; });
+  }
+  return saved
     .filter(function (w) { return allowed.some(function (r) { return r.id === w.id; }); })
-    .map(function (w) { seen[w.id] = true; return { id: w.id, enabled: w.enabled !== false }; });
-  allowed.forEach(function (r) {
-    if (!seen[r.id]) resolved.push({ id: r.id, enabled: true });
-  });
-  return resolved;
+    .map(function (w) { return { id: w.id, enabled: w.enabled !== false }; });
 }
 
 // Applies a (possibly-invalid) layout to the live grid: normalizes it first,
@@ -2386,20 +2390,24 @@ function resolveWidgetLayout(saved) {
 // input.
 function applyWidgetLayout(layout) {
   var normalized = normalizeGroupedOrder(layout);
+  var placedIds = {};
   normalized.forEach(function (w, i) {
+    placedIds[w.id] = true;
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
     if (!el) return;
     el.style.order = i * 10;
     el.style.display = w.enabled ? '' : 'none';
   });
-  // adminOnly widgets are excluded from `layout` entirely for non-admin users -
-  // the loop above never reaches them, so force them hidden explicitly here.
-  if (!isAdminUser) {
-    WIDGET_REGISTRY.filter(function (r) { return r.adminOnly; }).forEach(function (r) {
-      var el = document.querySelector('[data-widget-id="' + r.id + '"]');
-      if (el) el.style.display = 'none';
-    });
-  }
+  // Any registry widget not present in the layout at all - not just
+  // disabled, genuinely absent (a fresh account's deliberately-empty
+  // dashboard, or one not yet dragged on from the add-widget gallery) -
+  // isn't in the loop above, so it'd otherwise keep its default (visible)
+  // CSS state. Force it hidden explicitly.
+  WIDGET_REGISTRY.forEach(function (r) {
+    if (placedIds[r.id]) return;
+    var el = document.querySelector('[data-widget-id="' + r.id + '"]');
+    if (el) el.style.display = 'none';
+  });
 
   // Calendar's own divider always sits right after it; the finance divider
   // always sits at the boundary between the two blocks, wherever that
@@ -2705,6 +2713,204 @@ document.getElementById('weather-search-form').addEventListener('submit', async 
   }
 });
 
+// ---- Sports widget - favorite teams' scores/standings via ESPN's free public API ----
+var sportsLeaguesCache = null;
+
+function fmtGameDate(iso) {
+  var d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function renderGameRow(g, favTeamId) {
+  var favIsHome = g.home.id === favTeamId;
+  var favTeam = favIsHome ? g.home : g.away;
+  var oppTeam = favIsHome ? g.away : g.home;
+  var scoreText;
+  if (g.status.state === 'final' || g.status.state === 'live') {
+    scoreText = favTeam.score + '-' + oppTeam.score + (favTeam.winner ? ' W' : (g.status.state === 'final' ? ' L' : ' •'));
+  } else {
+    scoreText = fmtGameDate(g.date);
+  }
+  var oppLabel = (favIsHome ? 'vs ' : '@ ') + oppTeam.name;
+  return (
+    '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:0.1rem 0;">' +
+      '<span style="color:var(--muted);">' + oppLabel + '</span>' +
+      '<span>' + scoreText + '</span>' +
+    '</div>'
+  );
+}
+
+async function loadSports() {
+  var list = document.getElementById('sports-list');
+  try {
+    var scores = await getJSON('/api/sports/scores');
+    if (!scores.length) {
+      list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">No favorite teams yet - tap + to add some.</li>';
+      return;
+    }
+    list.innerHTML = scores.map(function (team) {
+      var next = team.upcoming[0];
+      var last = team.recent[0];
+      return (
+        '<li style="display:block;">' +
+          '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">' + team.teamName + '</div>' +
+          (next ? renderGameRow(next, team.teamId) : '<div style="font-size:0.78rem;color:var(--muted);">No upcoming game scheduled</div>') +
+          (last ? renderGameRow(last, team.teamId) : '') +
+        '</li>'
+      );
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">Could not load.</li>';
+  }
+}
+
+async function ensureSportsLeagues() {
+  if (sportsLeaguesCache) return sportsLeaguesCache;
+  sportsLeaguesCache = await getJSON('/api/sports/leagues');
+  var select = document.getElementById('sports-league-select');
+  select.innerHTML = sportsLeaguesCache.map(function (l) { return '<option value="' + l.key + '">' + l.label + '</option>'; }).join('');
+  return sportsLeaguesCache;
+}
+
+async function populateStandingsSelect() {
+  var select = document.getElementById('sports-standings-select');
+  try {
+    var favorites = await getJSON('/api/sports/favorites');
+    if (!favorites.length) {
+      select.style.display = 'none';
+      return;
+    }
+    var leagues = await ensureSportsLeagues();
+    var leagueLabel = {};
+    leagues.forEach(function (l) { leagueLabel[l.key] = l.label; });
+    var seen = {};
+    var options = ['<option value="">Games</option>'];
+    favorites.forEach(function (f) {
+      if (seen[f.league]) return;
+      seen[f.league] = true;
+      options.push('<option value="' + f.league + '">' + (leagueLabel[f.league] || f.league) + ' standings</option>');
+    });
+    select.innerHTML = options.join('');
+    select.style.display = options.length > 1 ? 'block' : 'none';
+  } catch (err) {
+    select.style.display = 'none';
+  }
+}
+
+document.getElementById('sports-standings-select').addEventListener('change', async function () {
+  var league = this.value;
+  var list = document.getElementById('sports-list');
+  if (!league) {
+    loadSports();
+    return;
+  }
+  list.innerHTML = '<li class="skel skel-row"></li><li class="skel skel-row"></li>';
+  try {
+    var data = await getJSON('/api/sports/standings/' + league);
+    list.innerHTML = data.groups.map(function (g) {
+      var rows = g.teams.map(function (t) {
+        return (
+          '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:0.1rem 0;">' +
+            '<span>' + t.teamName + '</span><span style="color:var(--muted);">' + t.record + '</span>' +
+          '</div>'
+        );
+      }).join('');
+      return '<li style="display:block;"><div style="font-weight:600;font-size:0.8rem;margin-bottom:0.2rem;">' + g.name + '</div>' + rows + '</li>';
+    }).join('');
+  } catch (err) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">Could not load standings.</li>';
+  }
+});
+
+async function renderSportsFavoritesList() {
+  var listEl = document.getElementById('sports-favorites-list');
+  try {
+    var favorites = await getJSON('/api/sports/favorites');
+    if (!favorites.length) {
+      listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No favorite teams yet.</p>';
+    } else {
+      listEl.innerHTML = favorites.map(function (f) {
+        return (
+          '<div class="breakdown-row" data-id="' + f.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;">' +
+            '<span>' + f.team_name + ' <span style="color:var(--muted);font-size:0.75rem;">(' + f.league.toUpperCase() + ')</span></span>' +
+            '<button type="button" class="icon-btn remove-sports-favorite-btn" data-id="' + f.id + '" aria-label="Remove">&times;</button>' +
+          '</div>'
+        );
+      }).join('');
+      listEl.querySelectorAll('.remove-sports-favorite-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          await fetch('/api/sports/favorites/' + btn.dataset.id, { method: 'DELETE' });
+          renderSportsFavoritesList();
+          loadSports();
+          populateStandingsSelect();
+        });
+      });
+    }
+  } catch (err) {
+    listEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Could not load.</p>';
+  }
+}
+
+var sportsOverlay = document.getElementById('sports-modal-overlay');
+document.getElementById('open-sports-form').addEventListener('click', async function () {
+  document.getElementById('sports-form-status').textContent = '';
+  document.getElementById('sports-search-results').innerHTML = '';
+  document.getElementById('sports-team-search-input').value = '';
+  await ensureSportsLeagues();
+  renderSportsFavoritesList();
+  sportsOverlay.classList.add('open');
+});
+document.getElementById('cancel-sports-form').addEventListener('click', function () {
+  sportsOverlay.classList.remove('open');
+});
+sportsOverlay.addEventListener('click', function (e) {
+  if (e.target === sportsOverlay) sportsOverlay.classList.remove('open');
+});
+
+document.getElementById('sports-search-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('sports-form-status');
+  var resultsEl = document.getElementById('sports-search-results');
+  var league = document.getElementById('sports-league-select').value;
+  var q = document.getElementById('sports-team-search-input').value.trim();
+  statusEl.textContent = '';
+  resultsEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Searching&hellip;</p>';
+  try {
+    var teams = await getJSON('/api/sports/' + league + '/teams?q=' + encodeURIComponent(q));
+    if (!teams.length) {
+      resultsEl.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">No matches found.</p>';
+      return;
+    }
+    resultsEl.innerHTML = teams.slice(0, 15).map(function (t, i) {
+      return '<div class="weather-search-result" data-idx="' + i + '">' + t.name + '</div>';
+    }).join('');
+    resultsEl.querySelectorAll('.weather-search-result').forEach(function (el) {
+      el.addEventListener('click', async function () {
+        var t = teams[Number(el.dataset.idx)];
+        try {
+          var res = await fetch('/api/sports/favorites', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ league: league, team_id: t.id, team_name: t.name, team_logo: t.logo }),
+          });
+          if (!res.ok) throw new Error((await res.json()).error || 'Could not add team');
+          renderSportsFavoritesList();
+          loadSports();
+          populateStandingsSelect();
+          resultsEl.innerHTML = '';
+        } catch (err) {
+          statusEl.textContent = err.message;
+          statusEl.className = 'form-status error';
+        }
+      });
+    });
+  } catch (err) {
+    resultsEl.innerHTML = '';
+    statusEl.textContent = 'Search failed.';
+    statusEl.className = 'form-status error';
+  }
+});
+
 // ---- Moon phase widget - pure calculation, no API needed ----
 var MOON_PHASE_NAMES = [
   'New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous',
@@ -2816,5 +3022,7 @@ loadWidgetLayout().then(function () {
 });
 loadSlideshow();
 loadWeather();
+loadSports();
+populateStandingsSelect();
 renderMoonPhase();
 loadNotes();

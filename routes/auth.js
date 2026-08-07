@@ -81,8 +81,14 @@ router.post('/signup', signupLimiter, async (req, res) => {
   }
 
   const { hash, salt } = hashPassword(password);
+  // widget_layout starts as an explicit empty array, not left NULL - a fresh
+  // account sees a blank dashboard and adds widgets deliberately via the
+  // edit-mode gallery, rather than starting with everything already on.
+  // NULL still means "no saved layout" for accounts that predate this and
+  // keeps defaulting to all-enabled (see resolveWidgetLayout() in
+  // dashboard.js) - only new signups get the explicit [] treatment.
   const { rows } = await pool.query(
-    'INSERT INTO users (username, email, password_hash, password_salt) VALUES ($1, $2, $3, $4) RETURNING id',
+    "INSERT INTO users (username, email, password_hash, password_salt, widget_layout) VALUES ($1, $2, $3, $4, '[]') RETURNING id",
     [username.toLowerCase(), normalizedEmail, hash, salt]
   );
   setSessionCookie(res, rows[0].id);

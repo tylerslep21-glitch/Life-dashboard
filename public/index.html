@@ -146,6 +146,15 @@
       </div>
     </section>
 
+    <section class="module" data-widget-id="sports">
+      <div class="module-head">
+        <h2>Sports</h2>
+        <button type="button" class="icon-btn" id="open-sports-form" aria-label="Manage favorite teams">+</button>
+      </div>
+      <select id="sports-standings-select" style="display:none; width:100%; margin-bottom:0.5rem; font-size:0.8rem; padding:0.3rem;"></select>
+      <ul class="breakdown" id="sports-list"><li class="skel skel-row"></li><li class="skel skel-row"></li></ul>
+    </section>
+
     <section class="module" data-widget-id="moon-phase">
       <div class="module-head"><h2>Moon phase</h2></div>
       <div class="moon-phase-content">
@@ -477,6 +486,35 @@
     </form>
     <div id="weather-search-results"></div>
     <p class="form-status" id="weather-form-status"></p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sports-modal-overlay">
+  <div class="modal">
+    <h2>Favorite teams</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Up to 20 teams across any of these leagues.
+    </p>
+    <div id="sports-favorites-list"></div>
+
+    <form id="sports-search-form" style="margin-top: 0.8rem;">
+      <div class="field-row">
+        <div class="field-group">
+          <label for="sports-league-select">League</label>
+          <select id="sports-league-select"></select>
+        </div>
+        <div class="field-group">
+          <label for="sports-team-search-input">Team</label>
+          <input type="text" id="sports-team-search-input" placeholder="e.g. Cowboys" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline-only" id="cancel-sports-form">Close</button>
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
+    </form>
+    <div id="sports-search-results"></div>
+    <p class="form-status" id="sports-form-status"></p>
   </div>
 </div>
 
