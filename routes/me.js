@@ -1,13 +1,13 @@
 const express = require('express');
 const { clearSessionCookie } = require('../lib/auth');
-const { sendEmail } = require('../lib/email');
+const { sendVerificationEmail } = require('../lib/verification');
 
 const router = express.Router();
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.get('/', async (req, res) => {
   const { rows } = await req.db.query(
-    'SELECT id, username, email, widget_layout, custom_themes, weather_location, notes, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, email_verified, widget_layout, custom_themes, weather_location, notes, created_at FROM users WHERE id = $1',
     [req.userId]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
@@ -15,9 +15,10 @@ router.get('/', async (req, res) => {
 });
 
 // { email: "..." } - self-serve, session-gated (only the signed-in account
-// can set its own email - that trust boundary is why this skips a
-// verify-before-use step; a confirmation email still goes out afterward so
-// the account owner would notice if it were ever set to the wrong address).
+// can set its own email). Resets email_verified to false and sends a fresh
+// confirmation link every time, including on a no-op re-save of the same
+// address - simplest way to guarantee "verified" always means "confirmed
+// since it was last set", with no special-casing for whether it changed.
 router.patch('/email', async (req, res) => {
   const { email } = req.body;
   if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
@@ -32,15 +33,11 @@ router.patch('/email', async (req, res) => {
     return res.status(409).json({ error: 'That email is already in use' });
   }
   const { rows } = await req.db.query(
-    'UPDATE users SET email = $1 WHERE id = $2 RETURNING id, username, email',
+    'UPDATE users SET email = $1, email_verified = false WHERE id = $2 RETURNING id, username, email, email_verified',
     [normalizedEmail, req.userId]
   );
   res.json(rows[0]);
-  sendEmail(
-    normalizedEmail,
-    'Email linked to your Life Dashboard account',
-    `<p>This address is now linked to the account <strong>${rows[0].username}</strong> for password resets and account emails. If this wasn't you, someone has access to your account - change your password immediately.</p>`
-  ).catch(() => {});
+  sendVerificationEmail(req.userId, normalizedEmail, rows[0].username, `${req.protocol}://${req.get('host')}`).catch(() => {});
 });
 
 // Permanently deletes the signed-in account and everything tied to it -

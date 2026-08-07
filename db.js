@@ -67,6 +67,24 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 -- NULLs under a UNIQUE constraint, so accounts created before this existed
 -- (or that never bother setting one) aren't forced to backfill anything.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+-- Whether the current email has actually been confirmed via the link sent
+-- by email_verification_tokens below - defaults false, and is reset to
+-- false any time the email is changed (see routes/me.js's PATCH /email).
+-- Purely informational for now (login/reset aren't gated on it - a bounced
+-- reset email already fails on its own), just so the account owner can see
+-- whether their address is actually confirmed to be deliverable.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false;
+
+-- Email confirmation flow, same shape/reasoning as password_reset_tokens
+-- (only a token hash stored, short-lived, single-use).
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- Password reset flow: a token is emailed, and only its hash is stored here
 -- (same reasoning as password_hash - if this table leaked, a raw stored

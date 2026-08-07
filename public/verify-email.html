@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Confirm email — Life Dashboard</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1A1A1A">
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+    .login-card {
+      width: 100%;
+      max-width: 340px;
+      background: var(--paper-raised);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem 1.75rem;
+      box-shadow: 0 12px 40px var(--shadow);
+      text-align: center;
+    }
+    .login-card h1 { font-size: 1.3rem; margin: 0 0 0.6rem; color: var(--ink); }
+    .login-card p { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 1.2rem; }
+    .login-card .btn { width: 100%; justify-content: center; }
+    .status-icon { width: 2.2rem; height: 2.2rem; margin: 0 auto 0.6rem; display: block; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card" id="card">
+      <!-- filled in by script based on ?status= -->
+    </div>
+  </div>
+
+  <script>
+    var status = new URLSearchParams(window.location.search).get('status');
+    var card = document.getElementById('card');
+    var CHECK_ICON = '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="#1a8a4a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';
+    var ERROR_ICON = '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="#d84343" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9 9l6 6M15 9l-6 6"/></svg>';
+
+    if (status === 'success') {
+      card.innerHTML =
+        CHECK_ICON +
+        '<h1>Email confirmed</h1>' +
+        '<p>Your email address is confirmed.</p>' +
+        '<a class="btn btn-primary" href="/">Go to dashboard</a>';
+    } else {
+      card.innerHTML =
+        ERROR_ICON +
+        '<h1>Link expired or invalid</h1>' +
+        '<p>This confirmation link is no longer valid. You can request a new one from Sign-in settings once you\'re signed in.</p>' +
+        '<a class="btn btn-primary" href="/login">Back to sign in</a>';
+    }
+  </script>
+</body>
+</html>

@@ -1845,6 +1845,23 @@ async function renderWebauthnCredentialsList() {
   }
 }
 
+function renderEmailVerifiedBadge(me) {
+  var badge = document.getElementById('email-verified-badge');
+  var resendBtn = document.getElementById('resend-verification-btn');
+  if (!me.email) {
+    badge.textContent = '';
+    resendBtn.style.display = 'none';
+  } else if (me.email_verified) {
+    badge.textContent = 'Confirmed';
+    badge.style.color = '#1a8a4a';
+    resendBtn.style.display = 'none';
+  } else {
+    badge.textContent = 'Not confirmed yet - check your inbox, or resend below.';
+    badge.style.color = 'var(--muted)';
+    resendBtn.style.display = 'inline-flex';
+  }
+}
+
 document.getElementById('open-signin-settings').addEventListener('click', async function () {
   webauthnStatusEl.textContent = '';
   document.getElementById('change-password-form').reset();
@@ -1857,6 +1874,7 @@ document.getElementById('open-signin-settings').addEventListener('click', async 
   try {
     var me = await getJSON('/api/me');
     document.getElementById('email-input').value = me.email || '';
+    renderEmailVerifiedBadge(me);
   } catch (err) {
     // leave the field empty - not worth blocking the modal over
   }
@@ -1932,8 +1950,23 @@ document.getElementById('email-form').addEventListener('submit', async function 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: document.getElementById('email-input').value }),
     });
-    if (!res.ok) throw new Error((await res.json()).error || 'Could not save email');
-    statusEl.textContent = 'Email saved.';
+    var body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Could not save email');
+    statusEl.textContent = 'Email saved - check your inbox for a confirmation link.';
+    statusEl.className = 'form-status ok';
+    renderEmailVerifiedBadge(body);
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+document.getElementById('resend-verification-btn').addEventListener('click', async function () {
+  var statusEl = document.getElementById('email-status');
+  try {
+    var res = await fetch('/api/auth/resend-verification', { method: 'POST' });
+    if (!res.ok) throw new Error((await res.json()).error || 'Could not resend confirmation email');
+    statusEl.textContent = 'Confirmation email sent.';
     statusEl.className = 'form-status ok';
   } catch (err) {
     statusEl.textContent = err.message;

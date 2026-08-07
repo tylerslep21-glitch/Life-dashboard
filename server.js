@@ -50,6 +50,7 @@ const PUBLIC_FILES = new Set([
   '/terms.html',
   '/privacy.html',
   '/reset-password.html',
+  '/verify-email.html',
 ]);
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.use(async (req, res, next) => {

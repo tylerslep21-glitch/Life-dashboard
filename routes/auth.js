@@ -9,6 +9,7 @@ const {
 const { pool } = require('../db');
 const { setSessionCookie, clearSessionCookie, hasValidSession, hashPassword, verifyPassword } = require('../lib/auth');
 const { sendEmail } = require('../lib/email');
+const { sendVerificationEmail } = require('../lib/verification');
 
 const router = express.Router();
 
@@ -75,11 +76,7 @@ router.post('/signup', async (req, res) => {
   setSessionCookie(res, rows[0].id);
   res.status(201).json({ ok: true });
 
-  sendEmail(
-    normalizedEmail,
-    'Welcome to Life Dashboard',
-    `<p>Your account (<strong>${username}</strong>) is ready. This address is now linked for password resets and account emails.</p>`
-  ).catch(() => {});
+  sendVerificationEmail(rows[0].id, normalizedEmail, username.toLowerCase(), getOrigin(req)).catch(() => {});
 });
 
 router.post('/login', async (req, res) => {
@@ -147,6 +144,41 @@ router.post('/reset-password', async (req, res) => {
   const { hash, salt } = hashPassword(newPassword);
   await pool.query('UPDATE users SET password_hash = $1, password_salt = $2 WHERE id = $3', [hash, salt, record.user_id]);
   await pool.query('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [record.id]);
+  res.json({ ok: true });
+});
+
+// Hit directly from the emailed link - no session required (confirming an
+// email shouldn't need you to still be logged in on the same device/browser
+// that requested it). Redirects to a static page rather than returning JSON
+// since a real person clicking a link expects a page, not an API response.
+router.get('/verify-email', async (req, res) => {
+  const { token } = req.query;
+  if (typeof token !== 'string' || !token) {
+    return res.redirect('/verify-email.html?status=error');
+  }
+  const tokenHash = crypto.createHash('sha256').update(token).digest('base64url');
+  const { rows } = await pool.query(
+    `SELECT id, user_id FROM email_verification_tokens
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    [tokenHash]
+  );
+  const record = rows[0];
+  if (!record) {
+    return res.redirect('/verify-email.html?status=error');
+  }
+  await pool.query('UPDATE users SET email_verified = true WHERE id = $1', [record.user_id]);
+  await pool.query('UPDATE email_verification_tokens SET used_at = now() WHERE id = $1', [record.id]);
+  res.redirect('/verify-email.html?status=success');
+});
+
+router.post('/resend-verification', async (req, res) => {
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
+  const { rows } = await pool.query('SELECT username, email, email_verified FROM users WHERE id = $1', [userId]);
+  const user = rows[0];
+  if (!user || !user.email) return res.status(400).json({ error: 'No email set yet' });
+  if (user.email_verified) return res.json({ ok: true, already_verified: true });
+  await sendVerificationEmail(userId, user.email, user.username, getOrigin(req));
   res.json({ ok: true });
 });
 
