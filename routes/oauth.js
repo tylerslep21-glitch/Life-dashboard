@@ -2,6 +2,12 @@ const express = require('express');
 const crypto = require('crypto');
 const { pool } = require('../db');
 const { verifyPassword } = require('../lib/auth');
+const { rateLimit } = require('../lib/rateLimit');
+
+// This is a password check (gating a new MCP connector authorization) like
+// login/change-password elsewhere, so it gets the same brute-force
+// protection - see lib/rateLimit.js.
+const oauthAuthorizeLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'oauth-authorize' });
 
 // This connector exists to let Claude push Robinhood/agent-status data (see
 // lib/mcp-server.js), which is deliberately tied to the 'tslep' account only
@@ -120,7 +126,7 @@ router.get('/oauth/authorize', async (req, res) => {
   res.set('Content-Type', 'text/html').send(html);
 });
 
-router.post('/oauth/authorize', express.urlencoded({ extended: false }), async (req, res) => {
+router.post('/oauth/authorize', express.urlencoded({ extended: false }), oauthAuthorizeLimiter, async (req, res) => {
   const { client_id, redirect_uri, state, code_challenge, code_challenge_method, password } = req.body || {};
   if (!(await checkPassword(password))) {
     const html = renderAuthorizeForm({ error: 'Incorrect password.' })

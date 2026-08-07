@@ -10,12 +10,24 @@ const { pool } = require('../db');
 const { setSessionCookie, clearSessionCookie, hasValidSession, hashPassword, verifyPassword } = require('../lib/auth');
 const { sendEmail } = require('../lib/email');
 const { sendVerificationEmail } = require('../lib/verification');
+const { rateLimit } = require('../lib/rateLimit');
 
 const router = express.Router();
 
 const INVITE_CODE = process.env.INVITE_CODE;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// Generous enough that a real person mistyping a password or invite code a
+// few times never notices, restrictive enough to make brute-forcing a
+// password/invite code or spamming signups/emails impractical. Per IP, not
+// per account - see lib/rateLimit.js.
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'login' });
+const signupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, keyPrefix: 'signup' });
+const forgotPasswordLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, keyPrefix: 'forgot-password' });
+const resetPasswordLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, keyPrefix: 'reset-password' });
+const resendVerificationLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, keyPrefix: 'resend-verification' });
+const changePasswordLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, keyPrefix: 'change-password' });
 
 // Single in-flight ceremony at a time is fine - two people, not a real
 // multi-tenant service. A fresh options call always overwrites whatever
@@ -38,7 +50,7 @@ router.get('/session', (req, res) => {
   res.json({ authenticated: !!hasValidSession(req) });
 });
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   const { username, email, password, invite_code } = req.body || {};
   if (!INVITE_CODE) {
     return res.status(500).json({ error: 'Signup is not configured' });
@@ -79,7 +91,7 @@ router.post('/signup', async (req, res) => {
   sendVerificationEmail(rows[0].id, normalizedEmail, username.toLowerCase(), getOrigin(req)).catch(() => {});
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { identifier, password } = req.body || {};
   if (typeof identifier !== 'string' || typeof password !== 'string') {
     return res.status(401).json({ error: 'Incorrect username/email or password' });
@@ -100,7 +112,7 @@ router.post('/login', async (req, res) => {
 // account - and only after actually sending (or not) the email, not before -
 // so an unauthenticated caller can't use this to test which emails have
 // accounts here.
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email } = req.body || {};
   if (typeof email === 'string' && EMAIL_RE.test(email)) {
     const { rows } = await pool.query('SELECT id, username FROM users WHERE email = $1', [email.toLowerCase()]);
@@ -123,7 +135,7 @@ router.post('/forgot-password', async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', resetPasswordLimiter, async (req, res) => {
   const { token, new_password: newPassword } = req.body || {};
   if (typeof token !== 'string' || !token) {
     return res.status(400).json({ error: 'Missing reset token' });
@@ -171,7 +183,7 @@ router.get('/verify-email', async (req, res) => {
   res.redirect('/verify-email.html?status=success');
 });
 
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', resendVerificationLimiter, async (req, res) => {
   const userId = hasValidSession(req);
   if (!userId) return res.status(401).json({ error: 'Not signed in' });
   const { rows } = await pool.query('SELECT username, email, email_verified FROM users WHERE id = $1', [userId]);
@@ -182,7 +194,7 @@ router.post('/resend-verification', async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', changePasswordLimiter, async (req, res) => {
   const userId = hasValidSession(req);
   if (!userId) return res.status(401).json({ error: 'Not signed in' });
   const { current_password: currentPassword, new_password: newPassword } = req.body || {};
