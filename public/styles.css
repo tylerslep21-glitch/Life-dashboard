@@ -81,7 +81,11 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    width: 100%;
+    /* body has its own left/right padding for everything else on the page -
+       this bleeds the ticker out to the true edges of the screen instead of
+       inheriting that inset, since it's meant to read as a full-width bar. */
+    width: auto;
+    margin: 0 -1.5rem;
     height: 2.1rem;
     background: var(--ink);
     overflow: hidden;
