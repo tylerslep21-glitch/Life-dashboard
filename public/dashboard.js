@@ -2448,10 +2448,15 @@ function compactGroup(items) {
 // compacted independently (see compactGroup) so gaps left by a removed or
 // dragged-away widget get closed instead of leaving dead space, then the
 // financial group is shifted down to sit right after the locked widget.
+// Disabled widgets (enabled:false - only ever produced by pre-freeform-grid
+// saved layouts at this point) are excluded from compaction entirely: they
+// render as display:none regardless of x/y, so giving them a reserved cell
+// only ever produced a dead-looking gap where the invisible widget "was".
 function pinDatePickerAndFinance(layout) {
-  var weekNav = layout.find(function (w) { return w.id === LOCKED_WIDGET_ID; });
-  var nonFinancial = compactGroup(layout.filter(function (w) { return w.id !== LOCKED_WIDGET_ID && !FINANCIAL_WIDGET_IDS[w.id]; }));
-  var financial = compactGroup(layout.filter(function (w) { return FINANCIAL_WIDGET_IDS[w.id]; }));
+  var weekNav = layout.find(function (w) { return w.id === LOCKED_WIDGET_ID && w.enabled; });
+  var nonFinancial = compactGroup(layout.filter(function (w) { return w.enabled && w.id !== LOCKED_WIDGET_ID && !FINANCIAL_WIDGET_IDS[w.id]; }));
+  var financial = compactGroup(layout.filter(function (w) { return w.enabled && FINANCIAL_WIDGET_IDS[w.id]; }));
+  var disabled = layout.filter(function (w) { return !w.enabled; });
 
   var maxNonFinancialBottom = 0;
   nonFinancial.forEach(function (w) { maxNonFinancialBottom = Math.max(maxNonFinancialBottom, w.y + w.h); });
@@ -2466,7 +2471,7 @@ function pinDatePickerAndFinance(layout) {
   }
   financial.forEach(function (w) { w.y += financialStartY; });
 
-  return nonFinancial.concat(weekNav ? [weekNav] : []).concat(financial);
+  return nonFinancial.concat(weekNav ? [weekNav] : []).concat(financial).concat(disabled);
 }
 
 function normalizeLayout(layout) {

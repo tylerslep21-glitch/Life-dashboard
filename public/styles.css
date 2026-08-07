@@ -76,6 +76,13 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
+  /* The add-widget gallery dock (#add-widget-gallery) is fixed to the
+     bottom of the viewport at up to 40vh tall while editing - without this,
+     it sits on top of the last row of widgets instead of the page
+     scrolling far enough to clear it. */
+  body.dashboard-edit-mode {
+    padding-bottom: calc(40vh + 2rem);
+  }
 
   .ticker-bar {
     position: sticky;
