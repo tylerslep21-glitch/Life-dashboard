@@ -2399,54 +2399,78 @@ function packMissingPositions(items) {
   });
 }
 
-function rectsOverlap(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-// General de-overlap pass: sorts widgets top-left-first and pushes any
-// widget down that overlaps an earlier (already-settled) one. Not true
-// bin-packing, but it's exactly what's needed for the common case this was
-// missing before - growing a widget via resize used to just draw on top of
-// whatever was already there instead of moving it out of the way.
-function resolveCollisions(layout) {
-  var sorted = layout.slice().sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); });
-  for (var i = 0; i < sorted.length; i++) {
-    for (var j = 0; j < i; j++) {
-      if (rectsOverlap(sorted[i], sorted[j])) {
-        sorted[i].y = sorted[j].y + sorted[j].h;
+// Re-bin-packs a group of widgets from scratch into the first available
+// cell, scanning row by row - reading order is taken from each widget's
+// CURRENT x/y (sorted top-left first) so a drag/resize's intended target
+// position still determines where things land, but any dead space left
+// behind by a previous move/removal gets closed instead of staying empty.
+// Also structurally can't produce overlaps, since every widget claims a
+// genuinely free cell.
+function compactGroup(items) {
+  var sorted = items.slice().sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); });
+  var occupied = {};
+  function isFree(x, y, w, h) {
+    for (var dy = 0; dy < h; dy++) {
+      for (var dx = 0; dx < w; dx++) {
+        if (x + dx >= GRID_COLS) return false;
+        if (occupied[(x + dx) + ',' + (y + dy)]) return false;
       }
     }
+    return true;
   }
+  function occupy(x, y, w, h) {
+    for (var dy = 0; dy < h; dy++) {
+      for (var dx = 0; dx < w; dx++) occupied[(x + dx) + ',' + (y + dy)] = true;
+    }
+  }
+  sorted.forEach(function (item) {
+    var w = Math.min(item.w, GRID_COLS);
+    var y = 0;
+    while (true) {
+      for (var x = 0; x <= GRID_COLS - w; x++) {
+        if (isFree(x, y, w, item.h)) {
+          occupy(x, y, w, item.h);
+          item.x = x;
+          item.y = y;
+          return;
+        }
+      }
+      y++;
+    }
+  });
   return sorted;
 }
 
 // Keeps the "date picker" (week-nav) pinned full-width directly beneath
 // whatever non-financial content is above it, and keeps every financial
 // widget below that line - the financial/non-financial no-mixing rule from
-// the old list layout, adapted to explicit grid coordinates. Skipped
-// entirely if the user has removed week-nav from their dashboard.
+// the old list layout, adapted to explicit grid coordinates. Each group is
+// compacted independently (see compactGroup) so gaps left by a removed or
+// dragged-away widget get closed instead of leaving dead space, then the
+// financial group is shifted down to sit right after the locked widget.
 function pinDatePickerAndFinance(layout) {
   var weekNav = layout.find(function (w) { return w.id === LOCKED_WIDGET_ID; });
-  if (!weekNav) return layout;
-  var nonFinancial = layout.filter(function (w) { return w.id !== LOCKED_WIDGET_ID && !FINANCIAL_WIDGET_IDS[w.id]; });
-  var financial = layout.filter(function (w) { return FINANCIAL_WIDGET_IDS[w.id]; });
+  var nonFinancial = compactGroup(layout.filter(function (w) { return w.id !== LOCKED_WIDGET_ID && !FINANCIAL_WIDGET_IDS[w.id]; }));
+  var financial = compactGroup(layout.filter(function (w) { return FINANCIAL_WIDGET_IDS[w.id]; }));
 
   var maxNonFinancialBottom = 0;
   nonFinancial.forEach(function (w) { maxNonFinancialBottom = Math.max(maxNonFinancialBottom, w.y + w.h); });
 
-  weekNav.x = 0;
-  weekNav.w = GRID_COLS;
-  weekNav.h = 1;
-  weekNav.y = maxNonFinancialBottom;
+  var financialStartY = maxNonFinancialBottom;
+  if (weekNav) {
+    weekNav.x = 0;
+    weekNav.w = GRID_COLS;
+    weekNav.h = 1;
+    weekNav.y = maxNonFinancialBottom;
+    financialStartY = weekNav.y + weekNav.h;
+  }
+  financial.forEach(function (w) { w.y += financialStartY; });
 
-  var minFinancialY = weekNav.y + weekNav.h;
-  financial.forEach(function (w) { if (w.y < minFinancialY) w.y = minFinancialY; });
-
-  return layout;
+  return nonFinancial.concat(weekNav ? [weekNav] : []).concat(financial);
 }
 
 function normalizeLayout(layout) {
-  return pinDatePickerAndFinance(resolveCollisions(layout));
+  return pinDatePickerAndFinance(layout);
 }
 
 // Positions every widget on the live grid via explicit grid-column/grid-row
@@ -2982,7 +3006,9 @@ async function loadSports() {
       var last = team.recent[0];
       return (
         '<li style="display:block;">' +
-          '<div style="font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">' + team.teamName + '</div>' +
+          '<div style="display:flex;align-items:center;font-weight:600;font-size:0.85rem;margin-bottom:0.2rem;">' +
+            teamLogoImg({ logo: team.teamLogo }, 18) + team.teamName +
+          '</div>' +
           (next ? renderGameRow(next, team.teamId) : '<div style="font-size:0.78rem;color:var(--muted);">No upcoming game scheduled</div>') +
           (last ? renderGameRow(last, team.teamId) : '') +
         '</li>'

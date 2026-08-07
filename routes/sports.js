@@ -94,11 +94,20 @@ function scoreValue(score) {
   return score;
 }
 
+// The per-team "schedule" endpoint returns a logos[] array; the league-wide
+// "scoreboard" endpoint (used by the 7 per-league widgets) instead returns
+// a single logo string - checking only logos[] left every league widget's
+// team logo blank.
+function teamLogo(team) {
+  if (team.logos && team.logos[0] && team.logos[0].href) return team.logos[0].href;
+  return team.logo || null;
+}
+
 function mapTeam(competitor) {
   return {
     id: competitor.team.id,
     name: competitor.team.shortDisplayName || competitor.team.displayName,
-    logo: (competitor.team.logos && competitor.team.logos[0] && competitor.team.logos[0].href) || null,
+    logo: teamLogo(competitor.team),
     score: scoreValue(competitor.score),
     winner: !!competitor.winner,
   };
@@ -123,7 +132,7 @@ function mapEvent(event) {
 // benefit - this is exactly the data needed, per team).
 router.get('/scores', async (req, res) => {
   const { rows: favorites } = await req.db.query(
-    'SELECT league, team_id, team_name FROM favorite_teams WHERE user_id = $1 ORDER BY created_at ASC',
+    'SELECT league, team_id, team_name, team_logo FROM favorite_teams WHERE user_id = $1 ORDER BY created_at ASC',
     [req.userId]
   );
   const results = await Promise.all(favorites.map(async (fav) => {
@@ -137,9 +146,14 @@ router.get('/scores', async (req, res) => {
       const now = Date.now();
       const upcoming = events.filter((e) => e.status.state !== 'final' && new Date(e.date).getTime() >= now).slice(0, 3);
       const recent = events.filter((e) => e.status.state === 'final').slice(-3).reverse();
-      return { league: fav.league, teamId: fav.team_id, teamName: fav.team_name, upcoming, recent };
+      // Prefer whatever logo ESPN's own schedule data has for this team
+      // right now (it appears as home or away depending on the game) over
+      // the possibly-stale one cached on the favorite_teams row at add-time.
+      const anyEvent = events[0];
+      const liveLogo = anyEvent && (anyEvent.home.id === fav.team_id ? anyEvent.home.logo : anyEvent.away.logo);
+      return { league: fav.league, teamId: fav.team_id, teamName: fav.team_name, teamLogo: liveLogo || fav.team_logo, upcoming, recent };
     } catch (err) {
-      return { league: fav.league, teamId: fav.team_id, teamName: fav.team_name, upcoming: [], recent: [], error: true };
+      return { league: fav.league, teamId: fav.team_id, teamName: fav.team_name, teamLogo: fav.team_logo, upcoming: [], recent: [], error: true };
     }
   }));
   res.json(results.filter(Boolean));
