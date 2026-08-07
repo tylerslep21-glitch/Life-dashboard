@@ -471,6 +471,27 @@
       + Add this device
     </button>
     <p class="form-status" id="webauthn-status"></p>
+
+    <h2 style="margin-top: 1.4rem;">Change password</h2>
+    <form id="change-password-form">
+      <div class="field-group">
+        <label for="current-password-input">Current password</label>
+        <input type="password" id="current-password-input" autocomplete="current-password" required>
+      </div>
+      <div class="field-group">
+        <label for="new-password-input">New password</label>
+        <input type="password" id="new-password-input" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="field-group">
+        <label for="confirm-password-input">Confirm new password</label>
+        <input type="password" id="confirm-password-input" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary">Update password</button>
+      </div>
+      <p class="form-status" id="change-password-status"></p>
+    </form>
+
     <div class="modal-actions">
       <button type="button" class="btn btn-outline-only" id="signout-btn">Sign out</button>
       <button type="button" class="btn btn-outline-only" id="cancel-signin-form">Close</button>

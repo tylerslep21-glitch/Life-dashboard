@@ -1805,6 +1805,8 @@ async function renderWebauthnCredentialsList() {
 
 document.getElementById('open-signin-settings').addEventListener('click', function () {
   webauthnStatusEl.textContent = '';
+  document.getElementById('change-password-form').reset();
+  document.getElementById('change-password-status').textContent = '';
   renderWebauthnCredentialsList();
   signinOverlay.classList.add('open');
 });
@@ -1838,6 +1840,35 @@ document.getElementById('add-webauthn-device-btn').addEventListener('click', asy
 document.getElementById('signout-btn').addEventListener('click', async function () {
   await fetch('/api/auth/logout', { method: 'POST' });
   window.location.href = '/login';
+});
+
+document.getElementById('change-password-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('change-password-status');
+  var currentPassword = document.getElementById('current-password-input').value;
+  var newPassword = document.getElementById('new-password-input').value;
+  var confirmPassword = document.getElementById('confirm-password-input').value;
+
+  if (newPassword !== confirmPassword) {
+    statusEl.textContent = 'New passwords do not match.';
+    statusEl.className = 'form-status error';
+    return;
+  }
+
+  try {
+    var res = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Could not update password');
+    statusEl.textContent = 'Password updated.';
+    statusEl.className = 'form-status ok';
+    this.reset();
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'form-status error';
+  }
 });
 
 // ---- shared idle tracking (used by auto-reload below and auto-scroll further down) ----

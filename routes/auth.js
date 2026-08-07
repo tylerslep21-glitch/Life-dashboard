@@ -79,6 +79,23 @@ router.post('/login', async (req, res) => {
   res.json({ ok: true });
 });
 
+router.post('/change-password', async (req, res) => {
+  const userId = hasValidSession(req);
+  if (!userId) return res.status(401).json({ error: 'Not signed in' });
+  const { current_password: currentPassword, new_password: newPassword } = req.body || {};
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  const { rows } = await pool.query('SELECT password_hash, password_salt FROM users WHERE id = $1', [userId]);
+  const user = rows[0];
+  if (!user || !verifyPassword(currentPassword, user.password_hash, user.password_salt)) {
+    return res.status(401).json({ error: 'Current password is incorrect' });
+  }
+  const { hash, salt } = hashPassword(newPassword);
+  await pool.query('UPDATE users SET password_hash = $1, password_salt = $2 WHERE id = $3', [hash, salt, userId]);
+  res.json({ ok: true });
+});
+
 router.post('/logout', (req, res) => {
   clearSessionCookie(res);
   res.json({ ok: true });
