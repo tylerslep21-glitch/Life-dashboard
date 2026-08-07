@@ -2340,7 +2340,7 @@ var WIDGET_REGISTRY = [
   { id: 'league-ncaambb', name: "NCAA Men's Basketball", preview: leaguePreviewHTML('Duke', 'UNC', '7:00 PM') },
   { id: 'league-ncaawbb', name: "NCAA Women's Basketball", preview: leaguePreviewHTML('UConn', 'Iowa', '7:00 PM') },
   { id: 'moon-phase', name: 'Moon phase', preview:
-    '<div class="wp-row" style="align-items:center;"><span style="font-size:1.3rem;">&#127768;</span>' +
+    '<div class="wp-row" style="align-items:center;"><span style="font-size:1.3rem;">' + moonPhaseIcon(0.78) + '</span>' +
     '<span style="text-align:right;"><div>Waxing gibbous</div><div class="wp-muted">78% illuminated</div></span></div>'
   },
   { id: 'notes', name: 'Notes', preview: '<div class="wp-notes-box">Grocery list, gift ideas&hellip;</div>' },
