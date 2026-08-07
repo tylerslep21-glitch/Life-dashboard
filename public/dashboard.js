@@ -1845,11 +1845,21 @@ async function renderWebauthnCredentialsList() {
   }
 }
 
-document.getElementById('open-signin-settings').addEventListener('click', function () {
+document.getElementById('open-signin-settings').addEventListener('click', async function () {
   webauthnStatusEl.textContent = '';
   document.getElementById('change-password-form').reset();
   document.getElementById('change-password-status').textContent = '';
+  document.getElementById('email-status').textContent = '';
+  document.getElementById('delete-account-status').textContent = '';
+  document.getElementById('delete-account-confirm').style.display = 'none';
+  document.getElementById('delete-account-confirm-input').value = '';
   renderWebauthnCredentialsList();
+  try {
+    var me = await getJSON('/api/me');
+    document.getElementById('email-input').value = me.email || '';
+  } catch (err) {
+    // leave the field empty - not worth blocking the modal over
+  }
   signinOverlay.classList.add('open');
 });
 document.getElementById('cancel-signin-form').addEventListener('click', function () {
@@ -1907,6 +1917,46 @@ document.getElementById('change-password-form').addEventListener('submit', async
     statusEl.textContent = 'Password updated.';
     statusEl.className = 'form-status ok';
     this.reset();
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+document.getElementById('email-form').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  var statusEl = document.getElementById('email-status');
+  try {
+    var res = await fetch('/api/me/email', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('email-input').value }),
+    });
+    if (!res.ok) throw new Error((await res.json()).error || 'Could not save email');
+    statusEl.textContent = 'Email saved.';
+    statusEl.className = 'form-status ok';
+  } catch (err) {
+    statusEl.textContent = err.message;
+    statusEl.className = 'form-status error';
+  }
+});
+
+document.getElementById('open-delete-account-btn').addEventListener('click', function () {
+  document.getElementById('delete-account-confirm').style.display = 'block';
+});
+
+document.getElementById('confirm-delete-account-btn').addEventListener('click', async function () {
+  var statusEl = document.getElementById('delete-account-status');
+  var confirmInput = document.getElementById('delete-account-confirm-input');
+  if (confirmInput.value.trim().toLowerCase() !== 'delete') {
+    statusEl.textContent = 'Type "delete" to confirm.';
+    statusEl.className = 'form-status error';
+    return;
+  }
+  try {
+    var res = await fetch('/api/me', { method: 'DELETE' });
+    if (!res.ok) throw new Error('Could not delete account');
+    window.location.href = '/login';
   } catch (err) {
     statusEl.textContent = err.message;
     statusEl.className = 'form-status error';

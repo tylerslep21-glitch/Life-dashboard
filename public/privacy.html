@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Life Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .doc-wrap { max-width: 640px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    .doc-wrap h1 { font-size: 1.5rem; margin-bottom: 0.2rem; }
+    .doc-wrap .updated { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+    .doc-wrap h2 { font-size: 1.05rem; margin-top: 2rem; }
+    .doc-wrap p, .doc-wrap li { color: var(--ink-soft); font-size: 0.92rem; line-height: 1.6; }
+    .doc-wrap a { color: var(--accent); }
+    .back-link { display: inline-block; margin-top: 2rem; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div class="doc-wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Written plainly, on purpose - this describes what actually happens in the code, not
+    boilerplate.</p>
+
+    <h2>Who runs this</h2>
+    <p>Life Dashboard is a personal project run by one person (Tyler Slep). There's no company, no data broker
+    relationship, and nothing here is sold to anyone.</p>
+
+    <h2>What's collected</h2>
+    <ul>
+      <li><strong>Account info:</strong> username, email (optional but needed for password reset), and your
+      password - stored as a one-way scrypt hash, never in plain text or anywhere reversible.</li>
+      <li><strong>Whatever you choose to enter:</strong> financial figures (bank balances, card balances,
+      transactions, subscriptions), to-dos, exam/countdown dates, calendar feed URLs, uploaded photos, notes, custom
+      theme colors, and a saved weather location.</li>
+      <li><strong>Nothing tracked automatically:</strong> no analytics, no ad pixels, no third-party trackers.</li>
+    </ul>
+
+    <h2>How data is protected</h2>
+    <ul>
+      <li>All traffic to this app is encrypted in transit (HTTPS).</li>
+      <li>Passwords are hashed with scrypt - not encrypted, not reversible, not visible to anyone including the
+      admin.</li>
+      <li>Transaction details, card labels, and investment history are encrypted at rest (AES-256-GCM) before being
+      stored - a raw copy of the database wouldn't reveal them.</li>
+      <li>Account balance totals (e.g. "bank balance: $X") are stored as plain numbers, not encrypted - the app
+      needs to sum and sort these directly in the database, and encrypting them would mean much more app code doing
+      that math instead, which is a bigger correctness risk for a personal finance tool used daily. This is a
+      deliberate tradeoff, not an oversight.</li>
+      <li>The database itself runs on Railway's managed Postgres, which encrypts its underlying storage at rest.</li>
+    </ul>
+
+    <h2>Who can see what</h2>
+    <p>Every account's data is isolated by account - no one can read another account's financial data, photos, or
+    notes through the app. The Robinhood/investment widgets specifically are tied to one admin account only; other
+    accounts never see that data, by design, not just by convention.</p>
+
+    <h2>Third parties</h2>
+    <p>The only data that ever leaves this app for a third party: if you set a Weather widget location, your city
+    name/coordinates are sent to <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> (a
+    free weather API) to fetch a forecast. If you set an email address, it's used to send you account emails (like
+    password resets) through a transactional email provider - nothing else is shared with them.</p>
+
+    <h2>Cookies</h2>
+    <p>One HttpOnly session cookie, used only to keep you signed in. Not used for tracking or advertising.</p>
+
+    <h2>Deleting your data</h2>
+    <p>You can permanently delete your account and everything tied to it at any time from Settings. This is
+    immediate and can't be undone.</p>
+
+    <h2>Contact</h2>
+    <p>Questions: <a href="mailto:tylerslep21@gmail.com">tylerslep21@gmail.com</a>.</p>
+
+    <a class="back-link" href="/login">&larr; Back to sign in</a>
+  </div>
+</body>
+</html>

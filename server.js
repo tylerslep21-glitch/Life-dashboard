@@ -11,6 +11,10 @@ if (!process.env.SESSION_SECRET) {
   console.error('FATAL: SESSION_SECRET env var is not set. Refusing to start unprotected.');
   process.exit(1);
 }
+if (!process.env.DATA_ENCRYPTION_KEY) {
+  console.error('FATAL: DATA_ENCRYPTION_KEY env var is not set - finance/Robinhood writes would fail at runtime.');
+  process.exit(1);
+}
 
 // Railway terminates TLS and forwards plain HTTP internally - without trusting the proxy,
 // req.protocol always reports 'http', which breaks WebAuthn's strict origin check (it
@@ -43,6 +47,9 @@ const PUBLIC_FILES = new Set([
   '/apple-touch-icon.png',
   '/icon-192.png',
   '/icon-512.png',
+  '/terms.html',
+  '/privacy.html',
+  '/reset-password.html',
 ]);
 app.get('/login', (req, res) => res.sendFile(path.join(__dirname, 'public', 'login.html')));
 app.use(async (req, res, next) => {

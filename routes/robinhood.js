@@ -1,4 +1,5 @@
 const express = require('express');
+const { encryptJSON, decryptJSON } = require('../lib/crypto');
 
 const router = express.Router();
 
@@ -13,6 +14,16 @@ const router = express.Router();
 // tslep's real financial data - this is the data-isolation guarantee requested
 // specifically for this route.
 
+// history is stored encrypted (history_enc) going forward - see db.js and
+// scripts/migrate-to-encrypted.js. Rows from before that migration still
+// have their plaintext history, so this falls back to that instead of
+// assuming every row has been migrated.
+function decorateSnapshot(row) {
+  if (!row) return row;
+  const { history_enc: historyEnc, ...rest } = row;
+  return { ...rest, history: historyEnc ? decryptJSON(historyEnc) : (row.history || []) };
+}
+
 router.get('/latest', async (req, res) => {
   const { rows } = await req.db.query(
     `SELECT DISTINCT ON (account_label) *
@@ -21,7 +32,7 @@ router.get('/latest', async (req, res) => {
      ORDER BY account_label, logged_at DESC`,
     [req.userId]
   );
-  res.json(rows);
+  res.json(rows.map(decorateSnapshot));
 });
 
 router.get('/history/:label', async (req, res) => {
@@ -29,7 +40,7 @@ router.get('/history/:label', async (req, res) => {
     'SELECT * FROM robinhood_snapshots WHERE user_id = $1 AND account_label = $2 ORDER BY logged_at ASC',
     [req.userId, req.params.label]
   );
-  res.json(rows);
+  res.json(rows.map(decorateSnapshot));
 });
 
 // Best-effort value per account "as of" a given week (?date=YYYY-MM-DD, defaults today).
@@ -43,14 +54,14 @@ router.get('/as-of', async (req, res) => {
   // own snapshots (logged later in the day) - extend the cutoff to end-of-day.
   if (req.query.date) asOf.setUTCHours(23, 59, 59, 999);
 
-  const { rows } = await req.db.query(`
+  const { rows: rawRows } = await req.db.query(`
     SELECT DISTINCT ON (account_label) *
     FROM robinhood_snapshots
     WHERE user_id = $1 AND logged_at <= $2
     ORDER BY account_label, logged_at DESC
   `, [req.userId, asOf.toISOString()]);
 
-  const results = rows.map((snap) => {
+  const results = rawRows.map(decorateSnapshot).map((snap) => {
     const history = (snap.history || [])
       .filter((h) => new Date(h.date) <= asOf)
       .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -68,11 +79,11 @@ router.post('/snapshot', async (req, res) => {
   }
   const safeHistory = Array.isArray(history) ? history : [];
   const { rows } = await req.db.query(
-    `INSERT INTO robinhood_snapshots (account_label, total_value, history, user_id)
+    `INSERT INTO robinhood_snapshots (account_label, total_value, history_enc, user_id)
      VALUES ($1, $2, $3, $4) RETURNING *`,
-    [account_label, total_value, JSON.stringify(safeHistory), req.userId]
+    [account_label, total_value, encryptJSON(safeHistory), req.userId]
   );
-  res.status(201).json(rows[0]);
+  res.status(201).json(decorateSnapshot(rows[0]));
 });
 
 module.exports = router;

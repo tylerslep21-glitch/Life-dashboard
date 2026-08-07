@@ -554,6 +554,21 @@
     </button>
     <p class="form-status" id="webauthn-status"></p>
 
+    <h2 style="margin-top: 1.4rem;">Email</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Used for password resets and account emails.
+    </p>
+    <form id="email-form">
+      <div class="field-group">
+        <label for="email-input">Email</label>
+        <input type="email" id="email-input" autocomplete="email">
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary">Save email</button>
+      </div>
+      <p class="form-status" id="email-status"></p>
+    </form>
+
     <h2 style="margin-top: 1.4rem;">Change password</h2>
     <form id="change-password-form">
       <div class="field-group">
@@ -573,6 +588,23 @@
       </div>
       <p class="form-status" id="change-password-status"></p>
     </form>
+
+    <h2 style="margin-top: 1.4rem; color: #d84343;">Delete account</h2>
+    <p style="color: var(--muted); font-size: 0.85rem; margin-top: -0.5rem;">
+      Permanently deletes your account and everything tied to it - photos, finances, notes, everything. This
+      can't be undone.
+    </p>
+    <button type="button" class="btn btn-outline-only" id="open-delete-account-btn" style="border-color: #d84343; color: #d84343;">
+      Delete my account
+    </button>
+    <div id="delete-account-confirm" style="display:none; margin-top: 0.6rem;">
+      <p style="font-size: 0.85rem;">Type <strong>delete</strong> to confirm.</p>
+      <input type="text" id="delete-account-confirm-input" autocomplete="off" style="width:100%; padding:0.5rem 0.6rem; border-radius:5px; border:1px solid var(--border); background:var(--paper); color:var(--ink); box-sizing:border-box; margin-bottom:0.5rem;">
+      <button type="button" class="btn btn-outline-only" id="confirm-delete-account-btn" style="border-color: #d84343; color: #d84343;">
+        Permanently delete
+      </button>
+    </div>
+    <p class="form-status" id="delete-account-status"></p>
 
     <div class="modal-actions">
       <button type="button" class="btn btn-outline-only" id="signout-btn">Sign out</button>

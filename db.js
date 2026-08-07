@@ -62,6 +62,26 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS weather_location JSONB;
 -- user (not a list of separate notes), autosaved from the dashboard.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 
+-- Optional but needed for password reset (see password_reset_tokens below)
+-- and login-by-email. Nullable + unique - Postgres allows any number of
+-- NULLs under a UNIQUE constraint, so accounts created before this existed
+-- (or that never bother setting one) aren't forced to backfill anything.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT UNIQUE;
+
+-- Password reset flow: a token is emailed, and only its hash is stored here
+-- (same reasoning as password_hash - if this table leaked, a raw stored
+-- token would let someone reset any pending account's password; a hash
+-- doesn't). Short-lived and single-use (used_at set on redemption, checked
+-- before honoring a token) - not a general session mechanism.
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Up to 5 photos per user for the Photos/slideshow widget, stored as base64
 -- data URIs like countdown photos and custom-theme background images
 -- elsewhere in this schema. A dedicated table (not a JSONB column on users)
@@ -142,6 +162,22 @@ ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS recurring BOOLEAN NOT NULL DEF
 -- whatever pushes this agent's status) falls back to a dashboard-side default.
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS expected_interval_hours NUMERIC;
 ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- AES-256-GCM-encrypted replacements for the plaintext JSONB columns above
+-- (see lib/crypto.js) - card labels/balances and transaction detail are
+-- sensitive, and neither is ever queried *inside* by SQL (both are fetched
+-- whole and processed in JS - see routes/finance.js), so encrypting them is
+-- safe without touching any WHERE/ORDER BY/aggregate logic. The plaintext
+-- cards/transactions columns are left in place, unused, as a rollback
+-- safety net once scripts/migrate-to-encrypted.js backfills these - same
+-- pattern as life_dashboard_j elsewhere in this project. total_value/
+-- bank_balance/income stay plain NUMERIC - the app sums and sorts those
+-- directly in SQL, and encrypting them would mean moving that math into
+-- application code, a much bigger correctness risk than the security gain
+-- justifies for a personal finance tool used daily.
+ALTER TABLE finance_entries ADD COLUMN IF NOT EXISTS cards_enc TEXT;
+ALTER TABLE finance_entries ADD COLUMN IF NOT EXISTS transactions_enc TEXT;
+ALTER TABLE robinhood_snapshots ADD COLUMN IF NOT EXISTS history_enc TEXT;
 
 -- Multi-user migration: every per-tenant table gets a user_id column, added
 -- nullable so this runs safely against existing production data (the

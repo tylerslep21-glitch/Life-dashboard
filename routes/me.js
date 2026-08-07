@@ -1,14 +1,55 @@
 const express = require('express');
+const { clearSessionCookie } = require('../lib/auth');
+const { sendEmail } = require('../lib/email');
 
 const router = express.Router();
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 router.get('/', async (req, res) => {
   const { rows } = await req.db.query(
-    'SELECT id, username, widget_layout, custom_themes, weather_location, notes, created_at FROM users WHERE id = $1',
+    'SELECT id, username, email, widget_layout, custom_themes, weather_location, notes, created_at FROM users WHERE id = $1',
     [req.userId]
   );
   if (!rows.length) return res.status(404).json({ error: 'not found' });
   res.json(rows[0]);
+});
+
+// { email: "..." } - self-serve, session-gated (only the signed-in account
+// can set its own email - that trust boundary is why this skips a
+// verify-before-use step; a confirmation email still goes out afterward so
+// the account owner would notice if it were ever set to the wrong address).
+router.patch('/email', async (req, res) => {
+  const { email } = req.body;
+  if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'A valid email is required' });
+  }
+  const normalizedEmail = email.toLowerCase();
+  const { rows: existing } = await req.db.query(
+    'SELECT 1 FROM users WHERE email = $1 AND id != $2',
+    [normalizedEmail, req.userId]
+  );
+  if (existing.length) {
+    return res.status(409).json({ error: 'That email is already in use' });
+  }
+  const { rows } = await req.db.query(
+    'UPDATE users SET email = $1 WHERE id = $2 RETURNING id, username, email',
+    [normalizedEmail, req.userId]
+  );
+  res.json(rows[0]);
+  sendEmail(
+    normalizedEmail,
+    'Email linked to your Life Dashboard account',
+    `<p>This address is now linked to the account <strong>${rows[0].username}</strong> for password resets and account emails. If this wasn't you, someone has access to your account - change your password immediately.</p>`
+  ).catch(() => {});
+});
+
+// Permanently deletes the signed-in account and everything tied to it -
+// every per-user table references users(id) ON DELETE CASCADE, so this one
+// DELETE is enough; nothing is soft-deleted or recoverable afterward.
+router.delete('/', async (req, res) => {
+  await req.db.query('DELETE FROM users WHERE id = $1', [req.userId]);
+  clearSessionCookie(res);
+  res.json({ ok: true });
 });
 
 // { widget_layout: [{ id, enabled }, ...] } - ordered top-to-bottom, matching

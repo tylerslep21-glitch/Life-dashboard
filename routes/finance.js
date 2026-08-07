@@ -1,9 +1,28 @@
 const express = require('express');
+const { encryptJSON, decryptJSON } = require('../lib/crypto');
 
 const router = express.Router();
 
 // Net worth combines bank + Robinhood (assets) minus cards (liabilities) - computed
 // client-side once /api/finance/latest and /api/robinhood/latest have both loaded.
+
+const SELECT_COLUMNS = 'id, logged_at, bank_balance, income, cards, cards_enc, transactions, transactions_enc, user_id';
+
+// cards/transactions are stored encrypted (cards_enc/transactions_enc) going
+// forward - see db.js for why those two specifically, and scripts/
+// migrate-to-encrypted.js for the one-time backfill. Rows from before that
+// migration ran still have their plaintext cards/transactions, so this falls
+// back to those rather than assuming every row has been migrated. Either way,
+// the API's own shape (cards/transactions keys) never changes for callers.
+function decorateEntry(row) {
+  if (!row) return row;
+  const { cards_enc: cardsEnc, transactions_enc: transactionsEnc, ...rest } = row;
+  return {
+    ...rest,
+    cards: cardsEnc ? decryptJSON(cardsEnc) : (row.cards || []),
+    transactions: transactionsEnc ? decryptJSON(transactionsEnc) : (row.transactions || []),
+  };
+}
 
 // Monday 00:00 UTC of the week containing the given date.
 function weekStart(date) {
@@ -16,11 +35,11 @@ function weekStart(date) {
 
 router.get('/latest', async (req, res) => {
   const { rows } = await req.db.query(
-    'SELECT * FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1',
+    `SELECT ${SELECT_COLUMNS} FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 1`,
     [req.userId]
   );
   if (rows.length === 0) return res.json(null);
-  res.json(rows[0]);
+  res.json(decorateEntry(rows[0]));
 });
 
 router.get('/history', async (req, res) => {
@@ -31,11 +50,11 @@ router.get('/history', async (req, res) => {
   // once there are more than `limit` rows total.
   const { rows } = await req.db.query(
     `SELECT * FROM (
-       SELECT * FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT $2
+       SELECT ${SELECT_COLUMNS} FROM finance_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT $2
      ) recent ORDER BY logged_at ASC`,
     [req.userId, limit]
   );
-  res.json(rows);
+  res.json(rows.map(decorateEntry));
 });
 
 // Aggregates all entries falling in the Mon-Sun week containing ?date=YYYY-MM-DD
@@ -50,10 +69,11 @@ router.get('/week', async (req, res) => {
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 7);
 
-  const { rows } = await req.db.query(
-    'SELECT * FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
+  const { rows: rawRows } = await req.db.query(
+    `SELECT ${SELECT_COLUMNS} FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC`,
     [req.userId, start.toISOString(), end.toISOString()]
   );
+  const rows = rawRows.map(decorateEntry);
 
   if (rows.length === 0) {
     return res.json({ week_of: start.toISOString().slice(0, 10), entry_count: 0, bank_balance: null, cards: [], income: 0, transactions: [] });
@@ -84,10 +104,14 @@ router.get('/entries-in-week', async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 7);
 
   const { rows } = await req.db.query(
-    'SELECT id, logged_at, transactions FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
+    'SELECT id, logged_at, transactions, transactions_enc FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
     [req.userId, start.toISOString(), end.toISOString()]
   );
-  res.json(rows);
+  res.json(rows.map((r) => ({
+    id: r.id,
+    logged_at: r.logged_at,
+    transactions: r.transactions_enc ? decryptJSON(r.transactions_enc) : (r.transactions || []),
+  })));
 });
 
 // Replaces one entry's transactions array wholesale - used to edit or delete a
@@ -98,11 +122,12 @@ router.patch('/:id/transactions', async (req, res) => {
     return res.status(400).json({ error: 'transactions (array) is required' });
   }
   const { rows } = await req.db.query(
-    'UPDATE finance_entries SET transactions = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-    [JSON.stringify(transactions), req.params.id, req.userId]
+    `UPDATE finance_entries SET transactions_enc = $1 WHERE id = $2 AND user_id = $3
+     RETURNING ${SELECT_COLUMNS}`,
+    [encryptJSON(transactions), req.params.id, req.userId]
   );
   if (rows.length === 0) return res.status(404).json({ error: 'not found' });
-  res.json(rows[0]);
+  res.json(decorateEntry(rows[0]));
 });
 
 // Earliest week that has any data, so the frontend can disable "prev" past it.
@@ -131,11 +156,11 @@ router.post('/', async (req, res) => {
   }
 
   const { rows } = await req.db.query(
-    `INSERT INTO finance_entries (bank_balance, cards, income, transactions, logged_at, user_id)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [bank_balance, JSON.stringify(safeCards), safeIncome, JSON.stringify(safeTransactions), loggedAt.toISOString(), req.userId]
+    `INSERT INTO finance_entries (bank_balance, cards_enc, income, transactions_enc, logged_at, user_id)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${SELECT_COLUMNS}`,
+    [bank_balance, encryptJSON(safeCards), safeIncome, encryptJSON(safeTransactions), loggedAt.toISOString(), req.userId]
   );
-  res.status(201).json(rows[0]);
+  res.status(201).json(decorateEntry(rows[0]));
 });
 
 module.exports = router;

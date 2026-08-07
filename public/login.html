@@ -28,7 +28,7 @@
       text-align: center;
     }
     .login-card h1 { font-size: 1.3rem; margin: 0 0 1.4rem; color: var(--ink); }
-    .login-card input[type="password"], .login-card input[type="text"] {
+    .login-card input[type="password"], .login-card input[type="text"], .login-card input[type="email"] {
       width: 100%;
       padding: 0.7rem 0.9rem;
       border-radius: 10px;
@@ -60,6 +60,7 @@
       margin-top: 0.6rem;
       min-height: 1.2em;
     }
+    .login-ok { color: #1a8a4a; font-size: 0.85rem; margin-top: 0.6rem; }
     .login-toggle {
       background: none;
       border: none;
@@ -69,7 +70,16 @@
       cursor: pointer;
       margin-top: 0.4rem;
       padding: 0.3rem;
+      display: block;
+      width: 100%;
     }
+    .login-legal {
+      color: var(--muted);
+      font-size: 0.72rem;
+      margin-top: 1.2rem;
+      line-height: 1.5;
+    }
+    .login-legal a { color: var(--muted); text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -82,32 +92,59 @@
       <div class="login-divider" id="divider" style="display:none;">or</div>
 
       <form id="password-form">
-        <input type="text" id="username-input" placeholder="Username" autocomplete="username" autofocus required>
+        <input type="text" id="username-input" placeholder="Username or email" autocomplete="username" autofocus required>
         <input type="password" id="password-input" placeholder="Password" autocomplete="current-password" required>
         <button type="submit" class="btn btn-ghost">Sign in</button>
       </form>
+      <button type="button" class="login-toggle" id="toggle-forgot" style="margin-top:-0.3rem;">Forgot password?</button>
 
       <form id="signup-form" style="display:none;">
         <input type="text" id="signup-username-input" placeholder="Choose a username" autocomplete="username" required>
+        <input type="email" id="signup-email-input" placeholder="Email" autocomplete="email" required>
         <input type="password" id="signup-password-input" placeholder="Choose a password" autocomplete="new-password" required>
         <input type="text" id="signup-invite-input" placeholder="Invite code" autocomplete="off" required>
         <button type="submit" class="btn btn-ghost">Create account</button>
       </form>
 
+      <form id="forgot-form" style="display:none;">
+        <input type="email" id="forgot-email-input" placeholder="Your account email" autocomplete="email" required>
+        <button type="submit" class="btn btn-ghost">Send reset link</button>
+      </form>
+
       <button type="button" class="login-toggle" id="toggle-signup">Need an account? Sign up</button>
       <p class="login-error" id="login-error"></p>
+      <p class="login-ok" id="login-ok"></p>
+
+      <p class="login-legal">
+        By signing in or creating an account you agree to the
+        <a href="/terms.html">Terms of Service</a> and <a href="/privacy.html">Privacy Policy</a>.
+      </p>
     </div>
   </div>
 
   <script src="/webauthn.js"></script>
   <script>
     var errorEl = document.getElementById('login-error');
+    var okEl = document.getElementById('login-ok');
     var touchIdBtn = document.getElementById('touchid-btn');
     var divider = document.getElementById('divider');
     var loginForm = document.getElementById('password-form');
     var signupForm = document.getElementById('signup-form');
-    var toggleBtn = document.getElementById('toggle-signup');
-    var showingSignup = false;
+    var forgotForm = document.getElementById('forgot-form');
+    var toggleSignupBtn = document.getElementById('toggle-signup');
+    var toggleForgotBtn = document.getElementById('toggle-forgot');
+
+    function showForm(which) {
+      loginForm.style.display = which === 'login' ? 'block' : 'none';
+      signupForm.style.display = which === 'signup' ? 'block' : 'none';
+      forgotForm.style.display = which === 'forgot' ? 'block' : 'none';
+      toggleSignupBtn.style.display = which === 'forgot' ? 'none' : 'block';
+      toggleForgotBtn.style.display = which === 'signup' ? 'none' : 'block';
+      toggleSignupBtn.textContent = which === 'signup' ? 'Already have an account? Sign in' : 'Need an account? Sign up';
+      toggleForgotBtn.textContent = which === 'forgot' ? 'Back to sign in' : 'Forgot password?';
+      errorEl.textContent = '';
+      okEl.textContent = '';
+    }
 
     // Only offer Touch ID if this browser supports it AND at least one credential is
     // already registered - probing the options endpoint doubles as that check.
@@ -132,12 +169,14 @@
         });
     });
 
-    toggleBtn.addEventListener('click', function () {
-      showingSignup = !showingSignup;
-      loginForm.style.display = showingSignup ? 'none' : 'block';
-      signupForm.style.display = showingSignup ? 'block' : 'none';
-      toggleBtn.textContent = showingSignup ? 'Already have an account? Sign in' : 'Need an account? Sign up';
-      errorEl.textContent = '';
+    var currentForm = 'login';
+    toggleSignupBtn.addEventListener('click', function () {
+      currentForm = currentForm === 'signup' ? 'login' : 'signup';
+      showForm(currentForm);
+    });
+    toggleForgotBtn.addEventListener('click', function () {
+      currentForm = currentForm === 'forgot' ? 'login' : 'forgot';
+      showForm(currentForm);
     });
 
     loginForm.addEventListener('submit', function (e) {
@@ -147,7 +186,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: document.getElementById('username-input').value,
+          identifier: document.getElementById('username-input').value,
           password: document.getElementById('password-input').value,
         }),
       })
@@ -166,6 +205,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: document.getElementById('signup-username-input').value,
+          email: document.getElementById('signup-email-input').value,
           password: document.getElementById('signup-password-input').value,
           invite_code: document.getElementById('signup-invite-input').value,
         }),
@@ -175,6 +215,24 @@
           window.location.href = '/';
         })
         .catch(function (err) { errorEl.textContent = err.message; });
+    });
+
+    forgotForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errorEl.textContent = '';
+      okEl.textContent = '';
+      fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('forgot-email-input').value }),
+      })
+        .then(function () {
+          // Deliberately the same message whether or not the email matched an
+          // account - confirming/denying an email's existence to an
+          // unauthenticated caller is its own small privacy leak.
+          okEl.textContent = 'If that email matches an account, a reset link is on its way.';
+        })
+        .catch(function () { errorEl.textContent = 'Could not send reset link right now.'; });
     });
   </script>
 </body>

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -7,10 +8,13 @@ const {
 } = require('@simplewebauthn/server');
 const { pool } = require('../db');
 const { setSessionCookie, clearSessionCookie, hasValidSession, hashPassword, verifyPassword } = require('../lib/auth');
+const { sendEmail } = require('../lib/email');
 
 const router = express.Router();
 
 const INVITE_CODE = process.env.INVITE_CODE;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 // Single in-flight ceremony at a time is fine - two people, not a real
 // multi-tenant service. A fresh options call always overwrites whatever
@@ -34,7 +38,7 @@ router.get('/session', (req, res) => {
 });
 
 router.post('/signup', async (req, res) => {
-  const { username, password, invite_code } = req.body || {};
+  const { username, email, password, invite_code } = req.body || {};
   if (!INVITE_CODE) {
     return res.status(500).json({ error: 'Signup is not configured' });
   }
@@ -44,38 +48,105 @@ router.post('/signup', async (req, res) => {
   if (typeof username !== 'string' || !/^[a-z0-9_]{3,32}$/i.test(username)) {
     return res.status(400).json({ error: 'Username must be 3-32 letters, numbers, or underscores' });
   }
+  if (typeof email !== 'string' || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: 'A valid email is required (used for password resets)' });
+  }
   if (typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
-  const { rows: existing } = await pool.query('SELECT 1 FROM users WHERE username = $1', [username.toLowerCase()]);
-  if (existing.length) {
+  const normalizedEmail = email.toLowerCase();
+  const { rows: existing } = await pool.query(
+    'SELECT username, email FROM users WHERE username = $1 OR email = $2',
+    [username.toLowerCase(), normalizedEmail]
+  );
+  if (existing.some((u) => u.username === username.toLowerCase())) {
     return res.status(409).json({ error: 'That username is taken' });
+  }
+  if (existing.some((u) => u.email === normalizedEmail)) {
+    return res.status(409).json({ error: 'That email is already in use' });
   }
 
   const { hash, salt } = hashPassword(password);
   const { rows } = await pool.query(
-    'INSERT INTO users (username, password_hash, password_salt) VALUES ($1, $2, $3) RETURNING id',
-    [username.toLowerCase(), hash, salt]
+    'INSERT INTO users (username, email, password_hash, password_salt) VALUES ($1, $2, $3, $4) RETURNING id',
+    [username.toLowerCase(), normalizedEmail, hash, salt]
   );
   setSessionCookie(res, rows[0].id);
   res.status(201).json({ ok: true });
+
+  sendEmail(
+    normalizedEmail,
+    'Welcome to Life Dashboard',
+    `<p>Your account (<strong>${username}</strong>) is ready. This address is now linked for password resets and account emails.</p>`
+  ).catch(() => {});
 });
 
 router.post('/login', async (req, res) => {
-  const { username, password } = req.body || {};
-  if (typeof username !== 'string' || typeof password !== 'string') {
-    return res.status(401).json({ error: 'Incorrect username or password' });
+  const { identifier, password } = req.body || {};
+  if (typeof identifier !== 'string' || typeof password !== 'string') {
+    return res.status(401).json({ error: 'Incorrect username/email or password' });
   }
   const { rows } = await pool.query(
-    'SELECT id, password_hash, password_salt FROM users WHERE username = $1',
-    [username.toLowerCase()]
+    'SELECT id, password_hash, password_salt FROM users WHERE username = $1 OR email = $1',
+    [identifier.toLowerCase()]
   );
   const user = rows[0];
   if (!user || !verifyPassword(password, user.password_hash, user.password_salt)) {
-    return res.status(401).json({ error: 'Incorrect username or password' });
+    return res.status(401).json({ error: 'Incorrect username/email or password' });
   }
   setSessionCookie(res, user.id);
+  res.json({ ok: true });
+});
+
+// Deliberately responds the same way whether or not the email matched an
+// account - and only after actually sending (or not) the email, not before -
+// so an unauthenticated caller can't use this to test which emails have
+// accounts here.
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body || {};
+  if (typeof email === 'string' && EMAIL_RE.test(email)) {
+    const { rows } = await pool.query('SELECT id, username FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = rows[0];
+    if (user) {
+      const token = crypto.randomBytes(32).toString('base64url');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('base64url');
+      await pool.query(
+        'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)',
+        [user.id, tokenHash, new Date(Date.now() + RESET_TOKEN_TTL_MS)]
+      );
+      const resetUrl = `${getOrigin(req)}/reset-password.html?token=${token}`;
+      sendEmail(
+        email.toLowerCase(),
+        'Reset your Life Dashboard password',
+        `<p>Hi ${user.username},</p><p><a href="${resetUrl}">Click here to reset your password</a>. This link expires in 30 minutes and can only be used once.</p><p>If you didn't request this, you can ignore this email.</p>`
+      ).catch(() => {});
+    }
+  }
+  res.json({ ok: true });
+});
+
+router.post('/reset-password', async (req, res) => {
+  const { token, new_password: newPassword } = req.body || {};
+  if (typeof token !== 'string' || !token) {
+    return res.status(400).json({ error: 'Missing reset token' });
+  }
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  const tokenHash = crypto.createHash('sha256').update(token).digest('base64url');
+  const { rows } = await pool.query(
+    `SELECT id, user_id FROM password_reset_tokens
+     WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()`,
+    [tokenHash]
+  );
+  const record = rows[0];
+  if (!record) {
+    return res.status(400).json({ error: 'This reset link is invalid or has expired' });
+  }
+  const { hash, salt } = hashPassword(newPassword);
+  await pool.query('UPDATE users SET password_hash = $1, password_salt = $2 WHERE id = $3', [hash, salt, record.user_id]);
+  await pool.query('UPDATE password_reset_tokens SET used_at = now() WHERE id = $1', [record.id]);
   res.json({ ok: true });
 });
 
