@@ -2050,8 +2050,13 @@ document.getElementById('email-form').addEventListener('submit', async function 
     });
     var body = await res.json();
     if (!res.ok) throw new Error(body.error || 'Could not save email');
-    statusEl.textContent = 'Email saved - check your inbox for a confirmation link.';
-    statusEl.className = 'form-status ok';
+    if (body.email_send_failed) {
+      statusEl.textContent = 'Email saved, but the confirmation link could not be sent right now - contact the admin.';
+      statusEl.className = 'form-status error';
+    } else {
+      statusEl.textContent = 'Email saved - check your inbox for a confirmation link.';
+      statusEl.className = 'form-status ok';
+    }
     renderEmailVerifiedBadge(body);
   } catch (err) {
     statusEl.textContent = err.message;
@@ -2063,9 +2068,15 @@ document.getElementById('resend-verification-btn').addEventListener('click', asy
   var statusEl = document.getElementById('email-status');
   try {
     var res = await fetch('/api/auth/resend-verification', { method: 'POST' });
-    if (!res.ok) throw new Error((await res.json()).error || 'Could not resend confirmation email');
-    statusEl.textContent = 'Confirmation email sent.';
-    statusEl.className = 'form-status ok';
+    var body = await res.json();
+    if (!res.ok) throw new Error(body.error || 'Could not resend confirmation email');
+    if (body.email_send_failed) {
+      statusEl.textContent = 'Could not send the confirmation email right now - contact the admin.';
+      statusEl.className = 'form-status error';
+    } else {
+      statusEl.textContent = 'Confirmation email sent.';
+      statusEl.className = 'form-status ok';
+    }
   } catch (err) {
     statusEl.textContent = err.message;
     statusEl.className = 'form-status error';
@@ -3308,7 +3319,7 @@ function startRotation(timerId, events, listEl, pageSize, emptyText) {
     leagueWidgetRotateTimers[timerId] = setInterval(function () {
       page = (page + 1) % pageCount;
       renderPage();
-    }, 6000);
+    }, 10000);
   }
 }
 

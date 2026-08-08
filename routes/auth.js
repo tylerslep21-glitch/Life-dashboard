@@ -92,9 +92,8 @@ router.post('/signup', signupLimiter, async (req, res) => {
     [username.toLowerCase(), normalizedEmail, hash, salt]
   );
   setSessionCookie(res, rows[0].id);
-  res.status(201).json({ ok: true });
-
-  sendVerificationEmail(rows[0].id, normalizedEmail, username.toLowerCase(), getOrigin(req)).catch(() => {});
+  const sendResult = await sendVerificationEmail(rows[0].id, normalizedEmail, username.toLowerCase(), getOrigin(req));
+  res.status(201).json({ ok: true, email_send_failed: !sendResult.ok });
 });
 
 router.post('/login', loginLimiter, async (req, res) => {
@@ -196,8 +195,8 @@ router.post('/resend-verification', resendVerificationLimiter, async (req, res) 
   const user = rows[0];
   if (!user || !user.email) return res.status(400).json({ error: 'No email set yet' });
   if (user.email_verified) return res.json({ ok: true, already_verified: true });
-  await sendVerificationEmail(userId, user.email, user.username, getOrigin(req));
-  res.json({ ok: true });
+  const sendResult = await sendVerificationEmail(userId, user.email, user.username, getOrigin(req));
+  res.json({ ok: true, email_send_failed: !sendResult.ok });
 });
 
 router.post('/change-password', changePasswordLimiter, async (req, res) => {

@@ -36,8 +36,8 @@ router.patch('/email', async (req, res) => {
     'UPDATE users SET email = $1, email_verified = false WHERE id = $2 RETURNING id, username, email, email_verified',
     [normalizedEmail, req.userId]
   );
-  res.json(rows[0]);
-  sendVerificationEmail(req.userId, normalizedEmail, rows[0].username, `${req.protocol}://${req.get('host')}`).catch(() => {});
+  const sendResult = await sendVerificationEmail(req.userId, normalizedEmail, rows[0].username, `${req.protocol}://${req.get('host')}`);
+  res.json(Object.assign({}, rows[0], { email_send_failed: !sendResult.ok }));
 });
 
 // Permanently deletes the signed-in account and everything tied to it -
