@@ -104,14 +104,32 @@ router.get('/entries-in-week', async (req, res) => {
   end.setUTCDate(end.getUTCDate() + 7);
 
   const { rows } = await req.db.query(
-    'SELECT id, logged_at, transactions, transactions_enc FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
+    'SELECT id, logged_at, income, transactions, transactions_enc FROM finance_entries WHERE user_id = $1 AND logged_at >= $2 AND logged_at < $3 ORDER BY logged_at ASC',
     [req.userId, start.toISOString(), end.toISOString()]
   );
   res.json(rows.map((r) => ({
     id: r.id,
     logged_at: r.logged_at,
+    income: Number(r.income),
     transactions: r.transactions_enc ? decryptJSON(r.transactions_enc) : (r.transactions || []),
   })));
+});
+
+// Corrects one entry's income figure in place - a week's income stat sums
+// every entry logged that week (see /week above), so a typo in an earlier
+// entry previously had no fix except adding a compensating entry. Plain
+// UPDATE, not encrypted - income (unlike cards/transactions) never was.
+router.patch('/:id/income', async (req, res) => {
+  const { income } = req.body;
+  if (typeof income !== 'number' || isNaN(income)) {
+    return res.status(400).json({ error: 'income (number) is required' });
+  }
+  const { rows } = await req.db.query(
+    `UPDATE finance_entries SET income = $1 WHERE id = $2 AND user_id = $3 RETURNING ${SELECT_COLUMNS}`,
+    [income, req.params.id, req.userId]
+  );
+  if (rows.length === 0) return res.status(404).json({ error: 'not found' });
+  res.json(decorateEntry(rows[0]));
 });
 
 // Replaces one entry's transactions array wholesale - used to edit or delete a

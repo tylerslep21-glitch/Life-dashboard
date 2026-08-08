@@ -1360,6 +1360,65 @@ async function renderTransactionsManageList() {
   });
 }
 
+// ---- edit income entries for the selected week ----
+// A week's income stat sums every entry logged that week (see the backend's
+// /week route) - previously the only way to "fix" a bad income entry was to
+// add a new one that compensated for it. This lists each entry that
+// actually has income and lets it be edited or zeroed out directly.
+var incomeOverlay = document.getElementById('income-modal-overlay');
+
+async function renderIncomeManageList() {
+  var el = document.getElementById('income-manage-list');
+  document.getElementById('income-modal-title').textContent =
+    'Income — Week of ' + selectedWeekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  var entries;
+  try {
+    entries = await getJSON('/api/finance/entries-in-week?date=' + isoDate(selectedWeekStart));
+  } catch (err) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">Failed to load.</p>';
+    return;
+  }
+  var withIncome = entries.filter(function (e) { return Number(e.income) !== 0; });
+  if (!withIncome.length) {
+    el.innerHTML = '<p style="font-size:0.85rem;color:var(--muted);">No income logged this week.</p>';
+    return;
+  }
+  el.innerHTML = withIncome.map(function (entry) {
+    return (
+      '<div class="repeat-row income-row" data-entry-id="' + entry.id + '">' +
+        '<span style="flex:1;font-size:0.8rem;color:var(--muted);">' +
+          new Date(entry.logged_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+        '</span>' +
+        '<input type="number" step="0.01" class="income-amount" value="' + entry.income + '">' +
+      '</div>'
+    );
+  }).join('');
+
+  el.querySelectorAll('.income-row').forEach(function (row) {
+    var entryId = row.dataset.entryId;
+    row.querySelector('.income-amount').addEventListener('change', async function () {
+      await fetch('/api/finance/' + entryId + '/income', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ income: parseFloat(this.value) || 0 }),
+      });
+      await loadWeekView();
+    });
+  });
+}
+
+document.getElementById('open-income-form').addEventListener('click', function () {
+  document.getElementById('income-form-status').textContent = '';
+  renderIncomeManageList();
+  incomeOverlay.classList.add('open');
+});
+document.getElementById('cancel-income-form').addEventListener('click', function () {
+  incomeOverlay.classList.remove('open');
+});
+incomeOverlay.addEventListener('click', function (e) {
+  if (e.target === incomeOverlay) incomeOverlay.classList.remove('open');
+});
+
 document.getElementById('open-transactions-form').addEventListener('click', function () {
   document.getElementById('transactions-form-status').textContent = '';
   renderTransactionsManageList();

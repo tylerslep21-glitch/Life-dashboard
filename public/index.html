@@ -237,7 +237,9 @@
           <span class="stat-value" id="stat-spent"><span class="skel skel-inline skel-line w-short" style="height:1em;"></span></span>
         </div>
         <div class="stat">
-          <span class="stat-label" id="stat-income-label">Income</span>
+          <span class="stat-label" id="stat-income-label">Income
+            <button type="button" class="icon-btn" id="open-income-form" aria-label="Edit income entries" style="width:1.1rem;height:1.1rem;vertical-align:middle;margin-left:0.1rem;">+</button>
+          </span>
           <span class="stat-value" id="stat-income"><span class="skel skel-inline skel-line w-short" style="height:1em;"></span></span>
         </div>
       </div>
@@ -383,6 +385,17 @@
       </div>
       <div class="form-status" id="subscription-form-status"></div>
     </form>
+  </div>
+</div>
+
+<div class="modal-overlay" id="income-modal-overlay">
+  <div class="modal">
+    <h2 id="income-modal-title">Income</h2>
+    <div id="income-manage-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-outline-only" id="cancel-income-form">Close</button>
+    </div>
+    <div class="form-status" id="income-form-status"></div>
   </div>
 </div>
 
