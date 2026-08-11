@@ -45,7 +45,11 @@
     <button type="button" class="icon-btn" id="open-custom-themes" aria-label="Custom themes">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.7 1.7-1.6 0-.4-.2-.8-.4-1.1a1.5 1.5 0 0 1 1.1-2.5H16a4 4 0 0 0 4-4c0-5-3.6-8.8-8-8.8Z"/><circle cx="7.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="9.7" cy="7.2" r="1" fill="currentColor" stroke="none"/><circle cx="14.5" cy="7.2" r="1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="11" r="1" fill="currentColor" stroke="none"/></svg>
     </button>
-    <h1></h1>
+    <!-- Empty visually (no title text is shown here by design) but an <h1>
+         with no accessible name is a dead end for a screen reader user
+         navigating by heading - aria-label gives it one without changing
+         anything on screen. -->
+    <h1 aria-label="Life Dashboard"></h1>
     <div class="byline">
       <span id="clock"></span>
     </div>
@@ -267,7 +271,7 @@
       </div>
       <div class="widget-total" id="bank-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
-        <span class="pill" id="bank-badge" style="background: var(--muted);">&hellip;</span>
+        <span class="pill" id="bank-badge" style="background: var(--pill-idle-fill);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-bank"></div>
@@ -282,7 +286,7 @@
       </div>
       <div class="widget-total" id="agentic-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
-        <span class="pill" id="agentic-badge" style="background: var(--muted);">&hellip;</span>
+        <span class="pill" id="agentic-badge" style="background: var(--pill-idle-fill);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-agentic"></div>
@@ -297,7 +301,7 @@
       </div>
       <div class="widget-total" id="individual-total" style="font-variant-numeric: tabular-nums; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.15rem;"><span class="skel skel-inline skel-line w-medium" style="height:1.1em;"></span></div>
       <div style="margin-bottom: 0.6rem;">
-        <span class="pill" id="individual-badge" style="background: var(--muted);">&hellip;</span>
+        <span class="pill" id="individual-badge" style="background: var(--pill-idle-fill);">&hellip;</span>
       </div>
       <div class="chart-wrap">
         <div class="y-axis" id="yaxis-individual"></div>

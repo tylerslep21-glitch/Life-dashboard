@@ -152,20 +152,34 @@
   color: var(--pill-ink) !important;
   font-weight: 700;
 }
+/* Same problem, same fix, for the widget "remove" corner button (edit-mode
+   dashboard customizer) - styles.css hardcodes white for it too, which is
+   under WCAG AA's 3:1 UI-component contrast against some of these themes'
+   --critical fills specifically (its background). */
+:root[data-season] .widget-remove-btn {
+  color: var(--pill-ink) !important;
+}
 
 
-/* ==== tropical ==== */
+/* ==== tropical ====
+   Colors here are tuned to hold WCAG AA contrast (4.5:1 normal text, and
+   pill/bar/button fills tested against whatever text sits on top of them)
+   in both day and night mode - see the --muted/--accent-text comments in
+   styles.css's default :root block for the general reasoning; every preset
+   theme below follows the same pattern. */
 :root[data-season="tropical"] {
-  --accent: #FF6F61;
+  --accent: #E31400;
   --accent-soft: #FF9770;
-  --muted: #C9A875;
+  --accent-text: #990E00;
+  --muted: #5F4825;
   --border: #2DD4BF;
   --shadow: rgba(45, 212, 191, 0.4);
   --good: #34D399;
   --critical: #F4574B;
   --pill-ink: #0B1B2A;
+  --pill-idle-fill: #C9A875;
   --ink: #1B2A4A;
-  --ink-soft: #3D5A80;
+  --ink-soft: #344D6D;
   --paper: #7EC8E3;
   --paper-raised: #EAF7FC;
   --skel-base: rgba(0, 0, 0, 0.08);
@@ -175,15 +189,18 @@
   :root[data-season="tropical"]:not([data-theme="light"]) {
     --ink: #FFE9C7; --ink-soft: #F2C6A0;
     --paper: #170B2E; --paper-raised: #2A1B4D; --accent-soft: #FF8C42;
+    --accent-text: #FF6F61; --muted: #C9A875;
   }
 }
 :root[data-season="tropical"][data-theme="dark"] {
   --ink: #FFE9C7; --ink-soft: #F2C6A0;
   --paper: #170B2E; --paper-raised: #2A1B4D; --accent-soft: #FF8C42;
+  --accent-text: #FF6F61; --muted: #C9A875;
 }
 :root[data-season="tropical"][data-theme="light"] {
-  --ink: #1B2A4A; --ink-soft: #3D5A80;
+  --ink: #1B2A4A; --ink-soft: #344D6D;
   --paper: #7EC8E3; --paper-raised: #EAF7FC;
+  --accent-text: #990E00; --muted: #5F4825;
 }
 :root[data-season="tropical"] .viz-root {
   --series-asset: #38BDF8; --series-liability: #F4574B;
@@ -217,12 +234,14 @@
 :root[data-season="christmas"] {
   --accent: #D42F2F;
   --accent-soft: #E85D5D;
-  --muted: #C9A227;
+  --accent-text: #CC2A2A;
+  --muted: #806719;
   --border: #D4AF37;
   --shadow: rgba(212, 175, 55, 0.4);
-  --good: #2E8B57;
-  --critical: #D42F2F;
+  --good: #2F8D58;
+  --critical: #DA4A4A;
   --pill-ink: #1A0A0A;
+  --pill-idle-fill: #C9A227;
   --ink: #1B3A2A;
   --ink-soft: #3D6B52;
   --paper: #E8F0F5;
@@ -234,22 +253,25 @@
   :root[data-season="christmas"]:not([data-theme="light"]) {
     --ink: #F5E6D8; --ink-soft: #D8C4A8;
     --paper: #0D1F17; --paper-raised: #1C3524;
+    --accent-text: #E47979; --muted: #C9A227;
   }
 }
 :root[data-season="christmas"][data-theme="dark"] {
   --ink: #F5E6D8; --ink-soft: #D8C4A8;
   --paper: #0D1F17; --paper-raised: #1C3524;
+  --accent-text: #E47979; --muted: #C9A227;
 }
 :root[data-season="christmas"][data-theme="light"] {
   --ink: #1B3A2A; --ink-soft: #3D6B52;
   --paper: #E8F0F5; --paper-raised: #FFFFFF;
+  --accent-text: #CC2A2A; --muted: #806719;
 }
 :root[data-season="christmas"] .viz-root {
-  --series-asset: #A7D8E8; --series-liability: #D42F2F;
-  --series-1: #D42F2F; --series-2: #2E8B57;
+  --series-asset: #A7D8E8; --series-liability: #DA4A4A;
+  --series-1: #DA4A4A; --series-2: #2F8D58;
   --series-3: #D4AF37; --series-4: #E8E8E8;
   --viz-grid: #14301F; --viz-baseline: #D4AF37;
-  --good: #2E8B57; --critical: #D42F2F;
+  --good: #2F8D58; --critical: #DA4A4A;
 }
 
 /* christmas tiled background pattern - retro mode only (data-retro AND that
@@ -274,16 +296,18 @@
 
 /* ==== summer ==== */
 :root[data-season="summer"] {
-  --accent: #FF5E7A;
+  --accent: #E50028;
   --accent-soft: #FF8FA3;
-  --muted: #E8C468;
+  --accent-text: #AA001E;
+  --muted: #674F10;
   --border: #FFD23F;
   --shadow: rgba(255, 210, 63, 0.4);
   --good: #3DDC97;
   --critical: #FF5E7A;
   --pill-ink: #14263A;
+  --pill-idle-fill: #E8C468;
   --ink: #0D3B4E;
-  --ink-soft: #1F5C73;
+  --ink-soft: #1E596F;
   --paper: #7FD4F0;
   --paper-raised: #FFF8E1;
   --skel-base: rgba(0, 0, 0, 0.08);
@@ -293,15 +317,18 @@
   :root[data-season="summer"]:not([data-theme="light"]) {
     --ink: #FFEFC2; --ink-soft: #F5D48A;
     --paper: #1B1A3D; --paper-raised: #2E2A5C;
+    --accent-text: #FF6680; --muted: #E8C468;
   }
 }
 :root[data-season="summer"][data-theme="dark"] {
   --ink: #FFEFC2; --ink-soft: #F5D48A;
   --paper: #1B1A3D; --paper-raised: #2E2A5C;
+  --accent-text: #FF6680; --muted: #E8C468;
 }
 :root[data-season="summer"][data-theme="light"] {
-  --ink: #0D3B4E; --ink-soft: #1F5C73;
+  --ink: #0D3B4E; --ink-soft: #1E596F;
   --paper: #7FD4F0; --paper-raised: #FFF8E1;
+  --accent-text: #AA001E; --muted: #674F10;
 }
 :root[data-season="summer"] .viz-root {
   --series-asset: #29B6F6; --series-liability: #FF5E7A;
@@ -333,14 +360,16 @@
 
 /* ==== winter ==== */
 :root[data-season="winter"] {
-  --accent: #4FC3E8;
+  --accent: #157D9E;
   --accent-soft: #7FD8F5;
-  --muted: #7A94A3;
+  --accent-text: #137290;
+  --muted: #546C7A;
   --border: #C7DDE8;
   --shadow: rgba(199, 221, 232, 0.4);
   --good: #4FE0C4;
   --critical: #E85D75;
   --pill-ink: #0A1929;
+  --pill-idle-fill: #7A94A3;
   --ink: #1E3A4C;
   --ink-soft: #3E6478;
   --paper: #DCEFF7;
@@ -352,15 +381,18 @@
   :root[data-season="winter"]:not([data-theme="light"]) {
     --ink: #E3F2FB; --ink-soft: #B8DCEE;
     --paper: #0A1929; --paper-raised: #16283D;
+    --accent-text: #4FC3E8; --muted: #7A94A3;
   }
 }
 :root[data-season="winter"][data-theme="dark"] {
   --ink: #E3F2FB; --ink-soft: #B8DCEE;
   --paper: #0A1929; --paper-raised: #16283D;
+  --accent-text: #4FC3E8; --muted: #7A94A3;
 }
 :root[data-season="winter"][data-theme="light"] {
   --ink: #1E3A4C; --ink-soft: #3E6478;
   --paper: #DCEFF7; --paper-raised: #FFFFFF;
+  --accent-text: #137290; --muted: #546C7A;
 }
 :root[data-season="winter"] .viz-root {
   --series-asset: #4FC3E8; --series-liability: #E85D75;
@@ -392,14 +424,16 @@
 
 /* ==== spring ==== */
 :root[data-season="spring"] {
-  --accent: #7ED957;
+  --accent: #3C831E;
   --accent-soft: #A5E887;
-  --muted: #A3C9A8;
+  --accent-text: #387B1C;
+  --muted: #46764C;
   --border: #52C77E;
   --shadow: rgba(82, 199, 126, 0.4);
   --good: #52C77E;
   --critical: #FF6F91;
   --pill-ink: #14261A;
+  --pill-idle-fill: #A3C9A8;
   --ink: #2E4A2E;
   --ink-soft: #4E6E4E;
   --paper: #E3F7D9;
@@ -411,15 +445,18 @@
   :root[data-season="spring"]:not([data-theme="light"]) {
     --ink: #E8F5D9; --ink-soft: #C8E8B8;
     --paper: #14261A; --paper-raised: #1F3D28;
+    --accent-text: #7ED957; --muted: #A3C9A8;
   }
 }
 :root[data-season="spring"][data-theme="dark"] {
   --ink: #E8F5D9; --ink-soft: #C8E8B8;
   --paper: #14261A; --paper-raised: #1F3D28;
+  --accent-text: #7ED957; --muted: #A3C9A8;
 }
 :root[data-season="spring"][data-theme="light"] {
   --ink: #2E4A2E; --ink-soft: #4E6E4E;
   --paper: #E3F7D9; --paper-raised: #FFFFFF;
+  --accent-text: #387B1C; --muted: #46764C;
 }
 :root[data-season="spring"] .viz-root {
   --series-asset: #6FC7E8; --series-liability: #FF6F91;
@@ -451,14 +488,16 @@
 
 /* ==== autumn ==== */
 :root[data-season="autumn"] {
-  --accent: #E8703A;
+  --accent: #C44D17;
   --accent-soft: #F29B5F;
-  --muted: #C9962C;
+  --accent-text: #A44013;
+  --muted: #7A5B1B;
   --border: #A8452F;
   --shadow: rgba(168, 69, 47, 0.4);
-  --good: #6B8E4E;
-  --critical: #C0392B;
+  --good: #6C904F;
+  --critical: #D85F52;
   --pill-ink: #2A1710;
+  --pill-idle-fill: #C9962C;
   --ink: #4A2A1D;
   --ink-soft: #6E4530;
   --paper: #F5D9A8;
@@ -470,22 +509,25 @@
   :root[data-season="autumn"]:not([data-theme="light"]) {
     --ink: #F5E1C8; --ink-soft: #E0B888;
     --paper: #2A1710; --paper-raised: #3D2418;
+    --accent-text: #E8703A; --muted: #C9962C;
   }
 }
 :root[data-season="autumn"][data-theme="dark"] {
   --ink: #F5E1C8; --ink-soft: #E0B888;
   --paper: #2A1710; --paper-raised: #3D2418;
+  --accent-text: #E8703A; --muted: #C9962C;
 }
 :root[data-season="autumn"][data-theme="light"] {
   --ink: #4A2A1D; --ink-soft: #6E4530;
   --paper: #F5D9A8; --paper-raised: #FFF3E0;
+  --accent-text: #A44013; --muted: #7A5B1B;
 }
 :root[data-season="autumn"] .viz-root {
-  --series-asset: #6B8CAE; --series-liability: #C0392B;
-  --series-1: #E8703A; --series-2: #A8452F;
-  --series-3: #C9962C; --series-4: #6B8E4E;
+  --series-asset: #6B8CAE; --series-liability: #D85F52;
+  --series-1: #E8703A; --series-2: #CE6750;
+  --series-3: #C9962C; --series-4: #6C904F;
   --viz-grid: #2E1D14; --viz-baseline: #A8452F;
-  --good: #6B8E4E; --critical: #C0392B;
+  --good: #6C904F; --critical: #D85F52;
 }
 
 /* autumn tiled background pattern - retro mode only (data-retro AND that

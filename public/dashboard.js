@@ -1038,7 +1038,7 @@ async function renderBankWidget() {
     var badge = document.getElementById('bank-badge');
     if (series.length < 2) {
       badge.textContent = series.length + ' of ~52 weeks logged';
-      badge.style.background = 'var(--muted)';
+      badge.style.background = 'var(--pill-idle-fill)';
     } else {
       var pct = ((series[series.length - 1] - series[0]) / series[0]) * 100;
       badge.textContent = (pct >= 0 ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(2) + '% · 1yr';
@@ -1058,7 +1058,7 @@ function renderRobinhoodWidgets() {
     if (!snap) {
       totalEl.textContent = 'No data yet';
       badgeEl.textContent = 'awaiting first push';
-      badgeEl.style.background = 'var(--muted)';
+      badgeEl.style.background = 'var(--pill-idle-fill)';
       return;
     }
     totalEl.textContent = fmtDollar(snap.total_value, { cents: true });
@@ -1071,7 +1071,7 @@ function renderRobinhoodWidgets() {
       badgeEl.style.background = pct >= 0 ? 'var(--good)' : 'var(--critical)';
     } else {
       badgeEl.textContent = 'first snapshot';
-      badgeEl.style.background = 'var(--muted)';
+      badgeEl.style.background = 'var(--pill-idle-fill)';
     }
     renderLine('spark-' + key, series, dates, 5);
   });
@@ -1708,7 +1708,7 @@ async function loadAgentTracker() {
       var expectedHours = Number(a.expected_interval_hours) || AGENT_STALE_HOURS_DEFAULT;
       var stale = hoursSince > expectedHours * AGENT_STALE_GRACE;
       var pillColor = stale || statusLower.indexOf('error') !== -1 ? 'var(--critical)'
-        : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
+        : statusLower.indexOf('paused') !== -1 ? 'var(--pill-idle-fill)'
         : 'var(--good)';
       var pillText = (stale ? ICONS.warning : '') + escapeHtml(a.status_summary);
       var lastRun = lastRunDate.toLocaleString(undefined, {
@@ -3015,7 +3015,10 @@ function renderSlideshowViewport() {
 
   slideshowIndex = 0;
   viewport.innerHTML = slideshowPhotos.map(function (p, i) {
-    return '<img src="' + p.image + '" class="' + (i === 0 ? 'active' : '') + '">';
+    // Personal photos with no caption/name attached - nothing meaningful to
+    // put in alt text, so it's empty (decorative) rather than missing
+    // entirely, which is what WCAG 1.1.1 actually requires either way.
+    return '<img src="' + p.image + '" alt="" class="' + (i === 0 ? 'active' : '') + '">';
   }).join('');
   dotsEl.innerHTML = slideshowPhotos.map(function (p, i) {
     return '<span class="slideshow-dot' + (i === 0 ? ' active' : '') + '"></span>';

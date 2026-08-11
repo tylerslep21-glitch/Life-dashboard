@@ -8,13 +8,38 @@
     --paper-raised: #FFFFFF;
     --accent: #171717;
     --accent-soft: #555555;
-    --muted: #8C8C8C;
+    /* Text set directly in the accent color (event dates, hover states,
+       "renewing soon" labels) - kept separate from --accent itself because
+       --accent doubles as a filled button/pill background (white text on
+       top of it), and a color that's readable AS a light-mode/dark-mode
+       text color on --paper isn't necessarily the same color that's
+       readable holding white text as a fill, especially once a theme's
+       --paper flips from a bright pastel (day) to a near-black (night) -
+       see retro.css for where this actually diverges per preset theme.
+       Default's light-mode accent happens to satisfy both roles as-is;
+       dark mode doesn't (see the dark :root block below). */
+    --accent-text: var(--accent);
+    /* #8C8C8C read at 3.2-3.4:1 against --paper/--paper-raised - short of
+       WCAG AA's 4.5:1 for normal text (eyebrows, timestamps, muted labels
+       all use this). Darkened to the point contrast passes with a small
+       margin (4.6:1+) - see the ADA/WCAG audit this theme's colors were
+       checked against. Same reasoning for --good/--critical/--pill-idle-fill
+       below (needed to hold 4.5:1+ against white pill/button text) and for
+       every preset theme in retro.css. */
+    --muted: #727272;
     --border: rgba(0, 0, 0, 0.12);
     --shadow: rgba(0, 0, 0, 0.08);
     --skel-base: rgba(0, 0, 0, 0.08);
     --skel-shine: rgba(0, 0, 0, 0.16);
-    --good: #0ca30c;
+    --good: #0A860A;
     --critical: #d03b3b;
+    /* Status pills/bars set their own fill color as an inline style (see
+       dashboard.js) using one of --good/--critical/--pill-idle-fill - a
+       fourth "idle/neutral" fill distinct from --muted because --muted
+       also has to work as small body text, which pulls it toward a
+       darker value than an idle-status fill (paired with light pill
+       text) actually needs. */
+    --pill-idle-fill: #727272;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -23,15 +48,24 @@
       --ink-soft: #BFBFBF;
       --paper: #121212;
       --paper-raised: #000000;
-      --accent: #F2F2F2;
+      /* #F2F2F2 (near-white) behind white button text was 1.1:1 - completely
+         unreadable. See the --muted comment above the light :root block for
+         the general reasoning. --accent-text stays the original near-white
+         instead of following --accent's darkening - it's read directly as
+         text against dark --paper here, not as a fill holding white text,
+         and #F2F2F2 already had excellent contrast for that (17:1) before
+         --accent itself needed to change. */
+      --accent: #727272;
       --accent-soft: #C2C2C2;
+      --accent-text: #F2F2F2;
       --muted: #8F8F8F;
       --border: rgba(255, 255, 255, 0.12);
       --shadow: rgba(0, 0, 0, 0.35);
       --skel-base: rgba(255, 255, 255, 0.08);
       --skel-shine: rgba(255, 255, 255, 0.18);
-      --good: #0ca30c;
-      --critical: #e66767;
+      --good: #0A860A;
+      --critical: #DC2C2C;
+      --pill-idle-fill: #737373;
     }
   }
   :root[data-theme="dark"] {
@@ -39,15 +73,17 @@
     --ink-soft: #BFBFBF;
     --paper: #121212;
     --paper-raised: #000000;
-    --accent: #F2F2F2;
+    --accent: #727272;
     --accent-soft: #C2C2C2;
+    --accent-text: #F2F2F2;
     --muted: #8F8F8F;
     --border: rgba(255, 255, 255, 0.12);
     --shadow: rgba(0, 0, 0, 0.35);
     --skel-base: rgba(255, 255, 255, 0.08);
     --skel-shine: rgba(255, 255, 255, 0.18);
-    --good: #0ca30c;
-    --critical: #e66767;
+    --good: #0A860A;
+    --critical: #DC2C2C;
+    --pill-idle-fill: #737373;
   }
   :root[data-theme="light"] {
     --ink: #171717;
@@ -56,13 +92,15 @@
     --paper-raised: #FFFFFF;
     --accent: #171717;
     --accent-soft: #555555;
-    --muted: #8C8C8C;
+    --accent-text: var(--accent);
+    --muted: #727272;
     --border: rgba(0, 0, 0, 0.12);
     --shadow: rgba(0, 0, 0, 0.08);
     --skel-base: rgba(0, 0, 0, 0.08);
     --skel-shine: rgba(0, 0, 0, 0.16);
-    --good: #0ca30c;
+    --good: #0A860A;
     --critical: #d03b3b;
+    --pill-idle-fill: #727272;
   }
 
   * { box-sizing: border-box; }
@@ -263,7 +301,7 @@
     cursor: nwse-resize;
     display: none;
     touch-action: none;
-    color: var(--accent);
+    color: var(--accent-text);
     opacity: 0.9;
     background: var(--paper-raised, var(--paper));
     border: 1px solid var(--border);
@@ -382,8 +420,13 @@
     border: 1px solid transparent;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
   }
+  /* --accent-text, not --accent - a focus ring needs to stand out against
+     the page background (--paper), which is exactly what --accent-text is
+     tuned for; --accent itself is tuned to hold white text as a filled
+     button background instead, and doesn't reliably hit the 3:1 UI-contrast
+     minimum against --paper in every preset theme. */
   .btn:focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--accent-text);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -401,7 +444,7 @@
     border-color: var(--border);
     color: var(--ink);
   }
-  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost:hover { border-color: var(--accent-text); color: var(--accent-text); }
 
   .status-row {
     display: flex;
@@ -497,62 +540,68 @@
   /* A subscription renewing within the next few days - see renewalSoonDays()
      in dashboard.js */
   .renewing-soon {
-    color: var(--accent);
+    color: var(--accent-text);
     font-weight: 700;
   }
 
   .viz-root {
     color-scheme: light;
-    --series-asset: #6C7FD1;
+    /* --series-asset/1-4 double as bar-fill's own inline background (see
+       renderBars()/dashboard.js) with white text laid directly on top of
+       them (the dollar amount inside each bar) - darkened just enough to
+       hold 4.5:1+ against that white text; --series-2/4 were already dark
+       enough and are unchanged. Same reasoning applies to every preset
+       theme's .viz-root block in retro.css. */
+    --series-asset: #576CCA;
     --series-liability: #C23B3B;
-    --series-1: #D9432B;
+    --series-1: #D23D26;
     --series-2: #6B4E9E;
-    --series-3: #E8A33B;
+    --series-3: #9E6613;
     --series-4: #A83E8C;
     --viz-grid: #EDE2CE;
     --viz-baseline: #D6C7A8;
-    --good: #0ca30c;
+    --good: #0A860A;
     --critical: #d03b3b;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .viz-root {
       color-scheme: dark;
-      --series-asset: #7684CC;
-      --series-liability: #E0645A;
-      --series-1: #D9432B;
+      --series-asset: #5C6DC2;
+      --series-liability: #D73629;
+      --series-1: #D23D26;
       --series-2: #6B4E9E;
-      --series-3: #BB8022;
+      --series-3: #98681C;
       --series-4: #A83E8C;
       --viz-grid: #382A34;
       --viz-baseline: #4A3A44;
-      --good: #0ca30c;
-      --critical: #e66767;
+      --good: #0A860A;
+      --critical: #DC2C2C;
     }
   }
   :root[data-theme="dark"] .viz-root {
     color-scheme: dark;
-    --series-asset: #7684CC;
-    --series-liability: #E0645A;
-    --series-1: #D9432B;
+    --series-asset: #5C6DC2;
+    --series-liability: #D73629;
+    --series-1: #D23D26;
     --series-2: #6B4E9E;
-    --series-3: #BB8022;
+    --series-3: #98681C;
     --series-4: #A83E8C;
     --viz-grid: #382A34;
     --viz-baseline: #4A3A44;
-    --good: #0ca30c;
-    --critical: #e66767;
+    --good: #0A860A;
+    --critical: #DC2C2C;
   }
   :root[data-theme="light"] .viz-root {
     color-scheme: light;
-    --series-asset: #6C7FD1;
+    --series-asset: #576CCA;
     --series-liability: #C23B3B;
-    --series-1: #D9432B;
+    --series-1: #D23D26;
     --series-2: #6B4E9E;
-    --series-3: #E8A33B;
+    --series-3: #9E6613;
     --series-4: #A83E8C;
     --viz-grid: #EDE2CE;
     --viz-baseline: #D6C7A8;
-    --good: #0ca30c;
+    --good: #0A860A;
     --critical: #d03b3b;
   }
 
@@ -711,7 +760,7 @@
   .event-date {
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text);
     white-space: nowrap;
     min-width: 4.2rem;
   }
@@ -793,7 +842,7 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   font-size: 0.9rem;
 }
-.field-group input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field-group input:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
 
 .repeat-row {
   display: flex;
@@ -839,7 +888,7 @@
   cursor: pointer;
   margin-bottom: 1rem;
 }
-.add-row-btn:hover { border-color: var(--accent); color: var(--accent); }
+.add-row-btn:hover { border-color: var(--accent-text); color: var(--accent-text); }
 
 .modal-actions {
   display: flex;
@@ -885,7 +934,7 @@
   align-items: center;
   justify-content: center;
 }
-.week-arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.week-arrow:hover:not(:disabled) { border-color: var(--accent-text); color: var(--accent-text); }
 .week-arrow:disabled { opacity: 0.3; cursor: default; }
 .icon-btn {
   background: none;
@@ -902,7 +951,7 @@
   align-items: center;
   justify-content: center;
 }
-.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.icon-btn:hover { border-color: var(--accent-text); color: var(--accent-text); }
 
 .sub-row {
   display: flex;
@@ -1013,7 +1062,13 @@
   text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 .countdown-photo:not(.has-photo) .countdown-photo-name { color: var(--ink); text-shadow: none; }
-.countdown-photo:not(.has-photo) .countdown-photo-days { color: var(--accent) !important; text-shadow: none !important; }
+/* --accent is a single value shared between a theme's light AND dark mode
+   (see retro.css) - readable directly as text against one of --paper's two
+   mode-dependent values doesn't guarantee it's readable against the other,
+   and several presets failed badly in one mode or the other. --ink already
+   is mode-aware (a light/dark pair, like --paper itself) and passes AA
+   against --paper in every theme, so it's used here instead. */
+.countdown-photo:not(.has-photo) .countdown-photo-days { color: var(--ink) !important; text-shadow: none !important; }
 
 .countdown-photo-days {
   display: block;
@@ -1308,7 +1363,7 @@
   font-size: 0.88rem;
   box-sizing: border-box;
 }
-.notes-textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.notes-textarea:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 1px; }
 
 /* ---- Inline SVG icons (replacing emoji everywhere except the seasonal
    theme picker's own options, which are decorative theme identifiers, not
