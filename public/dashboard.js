@@ -2635,18 +2635,48 @@ function normalizeLayout(layout) {
 // instead, so it doesn't visually snap to its old/new cell mid-drag.
 var ROW_UNIT_PX = 200; // matches the old grid-auto-rows floor, now applied per-widget instead of per-row - see styles.css
 
+// Matches .modules' own breakpoints in styles.css (900px -> 2 columns,
+// 600px -> 1 column) - kept as one function so the JS-driven placement
+// below and the pointer-drag math in cellMetrics() can't drift apart.
+function responsiveCols() {
+  return window.innerWidth <= 600 ? 1 : (window.innerWidth <= 900 ? 2 : GRID_COLS);
+}
+
 function applyGridLayout(layout, excludeId) {
   var packed = normalizeLayout(packMissingPositions(layout));
   var placedIds = {};
   var gridEl = document.querySelector('.modules');
   var gap = gridEl ? (parseFloat(getComputedStyle(gridEl).gap) || 0) : 0;
+  var cols = responsiveCols();
+  // Below the desktop's 3-column width, the saved x/y coordinates (always
+  // authored against a 3-column grid) stop being valid column indices - a
+  // widget saved at x=1 or x=2 would ask for "column 2 of 1" once .modules
+  // collapses to a single column, forcing the grid to invent oversized
+  // implicit tracks to satisfy it and blowing out the page width instead of
+  // actually stacking. Below GRID_COLS, ignore x/y for placement (auto-flow
+  // one-per-row instead) but keep the user's intended order via the `order`
+  // property, driven off the same (y, then x) reading order the desktop
+  // grid displays them in.
+  var mobile = cols < GRID_COLS;
+  var readingOrder = {};
+  if (mobile) {
+    packed.slice().sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); })
+      .forEach(function (w, i) { readingOrder[w.id] = i; });
+  }
   packed.forEach(function (w) {
     placedIds[w.id] = true;
     var el = document.querySelector('[data-widget-id="' + w.id + '"]');
     if (!el) return;
     if (w.id !== excludeId) {
-      el.style.gridColumn = (w.x + 1) + ' / span ' + w.w;
-      el.style.gridRow = (w.y + 1) + ' / span ' + w.h;
+      if (mobile) {
+        el.style.gridColumn = cols === 1 ? '1 / -1' : 'span ' + Math.min(w.w, cols);
+        el.style.gridRow = 'auto';
+        el.style.order = readingOrder[w.id];
+      } else {
+        el.style.gridColumn = (w.x + 1) + ' / span ' + w.w;
+        el.style.gridRow = (w.y + 1) + ' / span ' + w.h;
+        el.style.order = '';
+      }
     }
     el.style.display = w.enabled ? '' : 'none';
     el.classList.toggle('widget-locked', w.id === LOCKED_WIDGET_ID);
@@ -2701,16 +2731,38 @@ async function loadWidgetLayout() {
   }
 }
 
+// Re-flows the grid on resize/orientation-change (debounced) so rotating a
+// phone or resizing the browser window across the 900px/600px breakpoints
+// re-derives placement instead of leaving widgets stuck with whatever
+// column count applied on load. Cheap no-op most of the time - only ever
+// touches the DOM, never triggers a save (persistWidgetLayout() is called
+// explicitly elsewhere, not from applyGridLayout()).
+var resizeReflowTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(resizeReflowTimer);
+  resizeReflowTimer = setTimeout(function () {
+    if (!currentWidgetLayout) return;
+    currentWidgetLayout = applyGridLayout(currentWidgetLayout);
+    // The freeform drag/resize editor's math (cellMetrics() below) assumes
+    // there's more than one column to drag between - bail out of edit mode
+    // if a resize/rotation lands on the single-column breakpoint mid-edit.
+    if (editModeOn && responsiveCols() < 2) exitEditMode();
+  }, 150);
+});
+
 // ---- edit mode: drag to reposition, drag the corner handle to resize ----
 // Built on Pointer Events (not native HTML5 drag-and-drop) for the same
 // reason as makeReorderable() elsewhere in this file - it's the one API
 // that actually fires on touch as well as mouse, which matters here more
 // than anywhere else given the iPad is this dashboard's primary display.
+// Below 2 columns (see responsiveCols()) there's nothing to drag a widget
+// between, so entering edit mode is gated on that in the
+// open-customize-dashboard handler further down.
 function cellMetrics() {
   var grid = document.querySelector('.modules');
   var rect = grid.getBoundingClientRect();
   var gap = parseFloat(getComputedStyle(grid).gap) || 0;
-  var cols = window.innerWidth <= 600 ? 1 : (window.innerWidth <= 900 ? 2 : GRID_COLS);
+  var cols = responsiveCols();
   var colWidth = (rect.width - gap * (cols - 1)) / cols;
   return { rect: rect, gap: gap, cols: cols, colWidth: colWidth, rowHeight: 200 + gap };
 }
@@ -2922,7 +2974,13 @@ function exitEditMode() {
 }
 
 document.getElementById('open-customize-dashboard').addEventListener('click', function () {
-  if (editModeOn) exitEditMode(); else enterEditMode();
+  if (editModeOn) { exitEditMode(); return; }
+  // The single-column mobile layout has nothing to drag a widget between -
+  // repositioning/resizing is a wider-screen affordance (also hidden via
+  // CSS at this width, but guarded here too in case of a mid-drag rotation
+  // or an interaction that bypasses the CSS display:none).
+  if (responsiveCols() < 2) return;
+  enterEditMode();
 });
 document.getElementById('done-editing-btn').addEventListener('click', exitEditMode);
 

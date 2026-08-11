@@ -302,9 +302,22 @@
   }
   @media (max-width: 600px) {
     .span-2, .span-3 { grid-column: span 1; }
+    /* The freeform drag-to-reposition/resize editor (see applyGridLayout()
+       in dashboard.js) needs at least 2 columns to drag a widget between -
+       at 1 column there's nothing to rearrange, so the entry point itself
+       is hidden rather than opening an editor that can't do anything. */
+    #open-customize-dashboard { display: none; }
   }
 
   .module {
+    /* Grid items default to min-width: auto, which means "never shrink
+       below your content's intrinsic min-content width" - any widget with
+       an unbreakable child (a long nowrap date/label, a wide inline row)
+       would otherwise force its track, and the whole grid, wider than the
+       column actually is instead of wrapping/scrolling inside the card.
+       Most visible on the single-column mobile layout, where the track is
+       narrowest. */
+    min-width: 0;
     background: var(--paper-raised);
     border: 1px solid var(--border);
     border-radius: 6px;
