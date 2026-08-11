@@ -21,6 +21,15 @@ window.addEventListener('unhandledrejection', function (e) {
   reportClientError(reason && reason.message ? reason.message : String(reason), reason && reason.stack);
 });
 
+// Escapes text before it's concatenated into an innerHTML string, so
+// user-supplied names/labels/messages (todo text, subscription names,
+// error messages, etc.) can't inject markup/script into the page.
+function escapeHtml(str) {
+  return String(str == null ? '' : str).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
 // ---- seasonal theme + retro style picker ----
 // Applied first, before anything else runs, so a saved preference doesn't
 // flash the default theme for a moment before switching over.
@@ -181,7 +190,7 @@ function renderCustomThemesList() {
               '<span class="custom-theme-swatch" style="background:' + t.secondary2 + ';"></span>' +
               '<span class="custom-theme-swatch" style="background:' + (t.widgetBg || t.secondary2) + ';"></span>' +
             '</span>' +
-            t.name +
+            escapeHtml(t.name) +
           '</span>' +
           '<span class="custom-theme-actions">' +
             '<button type="button" class="btn btn-outline-only edit-custom-theme-btn" data-id="' + t.id + '">Edit</button>' +
@@ -687,7 +696,7 @@ function renderCalendarQuickLinks() {
   wrap.innerHTML = currentCalendarSources.map(function (s, i) {
     var webcalUrl = s.ics_url.replace(/^https?:\/\//, 'webcal://');
     var cls = i === 0 ? 'btn btn-primary' : 'btn btn-ghost';
-    return '<a class="' + cls + '" href="' + webcalUrl + '" target="_blank" rel="noopener">' + s.label + ' &nbsp;&rarr;</a>';
+    return '<a class="' + cls + '" href="' + escapeHtml(webcalUrl) + '" target="_blank" rel="noopener">' + escapeHtml(s.label) + ' &nbsp;&rarr;</a>';
   }).join('');
 }
 
@@ -700,7 +709,7 @@ function renderCalendarManageList() {
   el.innerHTML = currentCalendarSources.map(function (s) {
     return (
       '<div class="sub-row" data-id="' + s.id + '">' +
-        '<span class="sub-name">' + s.label + (s.error ? ' &mdash; failing' : '') + '</span>' +
+        '<span class="sub-name">' + escapeHtml(s.label) + (s.error ? ' &mdash; failing' : '') + '</span>' +
         '<button type="button" class="sub-remove" data-id="' + s.id + '" aria-label="Delete">&times;</button>' +
       '</div>'
     );
@@ -809,7 +818,7 @@ function renderSubscriptionsList() {
       renewalStr = ' &middot; <span' + (soon ? ' class="renewing-soon"' : '') + '>renews ' + dateLabel + (soon ? ' (' + dayLabel + ')' : '') + '</span>';
     }
     var label = (s.cadence === 'yearly' ? fmtDollar(s.amount, { cents: true }) + '/yr' : fmtDollar(s.amount, { cents: true }) + '/mo') + renewalStr;
-    return '<li><span>' + s.name + '</span><span class="amt">' + label + '</span></li>';
+    return '<li><span>' + escapeHtml(s.name) + '</span><span class="amt">' + label + '</span></li>';
   });
   rows.push('<li><strong>Total</strong><span class="amt"><strong>' + fmtDollar(totalMonthly, { cents: true }) + '/mo</strong></span></li>');
   list.innerHTML = rows.join('');
@@ -825,7 +834,7 @@ function renderSubscriptionsManageList() {
     var period = s.cadence === 'yearly' ? '/yr' : '/mo';
     return (
       '<div class="sub-row" data-id="' + s.id + '">' +
-        '<span class="sub-name">' + s.name + ' &mdash; ' + fmtDollar(s.amount, { cents: true }) + period + '</span>' +
+        '<span class="sub-name">' + escapeHtml(s.name) + ' &mdash; ' + fmtDollar(s.amount, { cents: true }) + period + '</span>' +
         '<button type="button" class="sub-remove" data-id="' + s.id + '" aria-label="Delete">&times;</button>' +
       '</div>'
     );
@@ -1464,7 +1473,7 @@ function renderExamsList() {
     return (
       '<li class="event-item">' +
         '<span class="event-date">' + fmtDateOnly(e.event_date) + '</span>' +
-        '<span class="event-title">' + e.name + (e.course ? ' &middot; ' + e.course : '') + '</span>' +
+        '<span class="event-title">' + escapeHtml(e.name) + (e.course ? ' &middot; ' + escapeHtml(e.course) : '') + '</span>' +
         '<span style="margin-left:auto;font-size:0.7rem;color:var(--muted);">' + when + '</span>' +
       '</li>'
     );
@@ -1480,7 +1489,7 @@ function renderExamsManageList() {
   el.innerHTML = currentExams.map(function (e) {
     return (
       '<div class="sub-row" data-id="' + e.id + '">' +
-        '<span class="sub-name">' + e.name + (e.course ? ' &mdash; ' + e.course : '') + ' &middot; ' + fmtDateOnly(e.event_date) + '</span>' +
+        '<span class="sub-name">' + escapeHtml(e.name) + (e.course ? ' &mdash; ' + escapeHtml(e.course) : '') + ' &middot; ' + fmtDateOnly(e.event_date) + '</span>' +
         '<button type="button" class="sub-remove" data-id="' + e.id + '" aria-label="Delete">&times;</button>' +
       '</div>'
     );
@@ -1579,7 +1588,7 @@ function renderCountdownsList() {
   if (upcoming[1]) {
     secondaryEl.style.display = 'flex';
     secondaryEl.innerHTML =
-      '<span>' + upcoming[1].name + '</span>' +
+      '<span>' + escapeHtml(upcoming[1].name) + '</span>' +
       '<span class="amt">' + whenLabel(daysUntil(upcoming[1].target_date)) + '</span>';
   } else {
     secondaryEl.style.display = 'none';
@@ -1595,7 +1604,7 @@ function renderCountdownsManageList() {
   el.innerHTML = currentCountdowns.map(function (c) {
     return (
       '<div class="sub-row" data-id="' + c.id + '">' +
-        '<span class="sub-name">' + c.name + ' &mdash; ' + fmtDateOnly(c.target_date) + '</span>' +
+        '<span class="sub-name">' + escapeHtml(c.name) + ' &mdash; ' + fmtDateOnly(c.target_date) + '</span>' +
         '<button type="button" class="sub-remove" data-id="' + c.id + '" aria-label="Delete">&times;</button>' +
       '</div>'
     );
@@ -1701,18 +1710,18 @@ async function loadAgentTracker() {
       var pillColor = stale || statusLower.indexOf('error') !== -1 ? 'var(--critical)'
         : statusLower.indexOf('paused') !== -1 ? 'var(--muted)'
         : 'var(--good)';
-      var pillText = (stale ? ICONS.warning : '') + a.status_summary;
+      var pillText = (stale ? ICONS.warning : '') + escapeHtml(a.status_summary);
       var lastRun = lastRunDate.toLocaleString(undefined, {
         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       });
       return (
         '<li style="display:block;">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-            '<span style="font-weight:600;">' + a.agent_name + '</span>' +
+            '<span style="font-weight:600;">' + escapeHtml(a.agent_name) + '</span>' +
             '<span class="pill" style="background:' + pillColor + ';">' + pillText + '</span>' +
           '</div>' +
           '<div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--muted);margin-top:0.2rem;">' +
-            '<span>' + (a.action_taken || '&mdash;') + '</span>' +
+            '<span>' + (a.action_taken ? escapeHtml(a.action_taken) : '&mdash;') + '</span>' +
             '<span' + (stale ? ' style="color:var(--critical);font-weight:700;"' : '') + '>' + lastRun + '</span>' +
           '</div>' +
         '</li>'
@@ -1832,7 +1841,7 @@ function renderTodosList() {
       '<li class="todo-row' + (checked ? ' checked' : '') + '" data-id="' + t.id + '">' +
         '<span class="todo-drag-handle">&#9776;</span>' +
         '<input type="checkbox" class="todo-checkbox"' + (checked ? ' checked' : '') + '>' +
-        '<span class="todo-text">' + t.text + '</span>' +
+        '<span class="todo-text">' + escapeHtml(t.text) + '</span>' +
       '</li>'
     );
   }).join('');
@@ -1986,7 +1995,7 @@ async function renderWebauthnCredentialsList() {
     listEl.innerHTML = creds.map(function (c) {
       return (
         '<div class="breakdown-row" data-id="' + c.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;">' +
-          '<span>' + c.device_label + '</span>' +
+          '<span>' + escapeHtml(c.device_label) + '</span>' +
           '<button type="button" class="icon-btn remove-webauthn-btn" data-id="' + c.id + '" aria-label="Remove">&times;</button>' +
         '</div>'
       );
@@ -3127,7 +3136,7 @@ function fmtGameDate(iso) {
 
 function teamLogoImg(team, size) {
   if (!team.logo) return '';
-  return '<img src="' + team.logo + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:contain;vertical-align:middle;margin-right:0.3rem;">';
+  return '<img src="' + escapeHtml(team.logo) + '" alt="" style="width:' + size + 'px;height:' + size + 'px;object-fit:contain;vertical-align:middle;margin-right:0.3rem;">';
 }
 
 function renderGameRow(g, favTeamId) {
@@ -3222,11 +3231,11 @@ document.getElementById('sports-standings-select').addEventListener('change', as
       var rows = g.teams.map(function (t) {
         return (
           '<div style="display:flex;justify-content:space-between;font-size:0.78rem;padding:0.1rem 0;">' +
-            '<span>' + t.teamName + '</span><span style="color:var(--muted);">' + t.record + '</span>' +
+            '<span>' + escapeHtml(t.teamName) + '</span><span style="color:var(--muted);">' + escapeHtml(t.record) + '</span>' +
           '</div>'
         );
       }).join('');
-      return '<li style="display:block;"><div style="font-weight:600;font-size:0.8rem;margin-bottom:0.2rem;">' + g.name + '</div>' + rows + '</li>';
+      return '<li style="display:block;"><div style="font-weight:600;font-size:0.8rem;margin-bottom:0.2rem;">' + escapeHtml(g.name) + '</div>' + rows + '</li>';
     }).join('');
   } catch (err) {
     list.innerHTML = '<li style="color:var(--muted);font-size:0.85rem;">Could not load standings.</li>';
@@ -3243,7 +3252,7 @@ async function renderSportsFavoritesList() {
       listEl.innerHTML = favorites.map(function (f) {
         return (
           '<div class="breakdown-row" data-id="' + f.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;">' +
-            '<span style="display:flex;align-items:center;">' + teamLogoImg({ logo: f.team_logo }, 20) + f.team_name + ' <span style="color:var(--muted);font-size:0.75rem;">&nbsp;(' + f.league.toUpperCase() + ')</span></span>' +
+            '<span style="display:flex;align-items:center;">' + teamLogoImg({ logo: f.team_logo }, 20) + escapeHtml(f.team_name) + ' <span style="color:var(--muted);font-size:0.75rem;">&nbsp;(' + escapeHtml(f.league.toUpperCase()) + ')</span></span>' +
             '<button type="button" class="icon-btn remove-sports-favorite-btn" data-id="' + f.id + '" aria-label="Remove">&times;</button>' +
           '</div>'
         );
@@ -3293,7 +3302,7 @@ document.getElementById('sports-search-form').addEventListener('submit', async f
       return;
     }
     resultsEl.innerHTML = teams.slice(0, 15).map(function (t, i) {
-      return '<div class="weather-search-result" data-idx="' + i + '" style="display:flex;align-items:center;">' + teamLogoImg(t, 18) + t.name + '</div>';
+      return '<div class="weather-search-result" data-idx="' + i + '" style="display:flex;align-items:center;">' + teamLogoImg(t, 18) + escapeHtml(t.name) + '</div>';
     }).join('');
     resultsEl.querySelectorAll('.weather-search-result').forEach(function (el) {
       el.addEventListener('click', async function () {
@@ -3353,7 +3362,7 @@ function renderLeagueGameRow(g) {
   return (
     '<li class="league-game-row">' +
       '<span class="league-game-teams">' +
-        teamLogoImg(g.away, 16) + g.away.name + ' @ ' + teamLogoImg(g.home, 16) + g.home.name +
+        teamLogoImg(g.away, 16) + escapeHtml(g.away.name) + ' @ ' + teamLogoImg(g.home, 16) + escapeHtml(g.home.name) +
       '</span>' +
       '<span class="league-game-score">' + scoreText + '</span>' +
     '</li>'
@@ -3521,7 +3530,7 @@ async function loadErrors() {
       return (
         '<li style="display:block;">' +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;">' +
-            '<span style="font-weight:600;font-size:0.82rem;">[' + e.source + '] ' + e.message + '</span>' +
+            '<span style="font-weight:600;font-size:0.82rem;">[' + escapeHtml(e.source) + '] ' + escapeHtml(e.message) + '</span>' +
             '<span style="font-size:0.72rem;color:var(--muted);white-space:nowrap;">' + timeAgo(e.occurred_at) + '</span>' +
           '</div>' +
         '</li>'

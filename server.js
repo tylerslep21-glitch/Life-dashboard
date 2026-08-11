@@ -43,6 +43,20 @@ app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '6mb' })); // room for a base64-encoded countdown photo
 
+// Baseline response headers with no downside for this app: nosniff blocks MIME-type
+// sniffing that could turn an uploaded/rendered file into executable script, DENY
+// stops the dashboard being framed by another origin (clickjacking), and the
+// referrer policy keeps full URLs (which can carry query params) off third-party
+// requests. Skipping a Content-Security-Policy here since the dashboard relies on
+// inline style="" attributes throughout - a CSP tight enough to matter would need
+// a broader style refactor to avoid breaking the UI.
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // MCP endpoint for Claude Code cloud routines - lets them push data here without any
 // raw outbound network access, which they structurally don't have (see lib/mcp-server.js
 // for why). Registered as a custom connector at claude.ai/customize/connectors; that

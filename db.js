@@ -6,7 +6,11 @@ const { Pool } = require('pg');
 // used by local scripts) does need SSL. Any other host (e.g. a local dev Postgres)
 // defaults to no SSL.
 function makePool(connectionString) {
-  const needsSSL = connectionString.includes('rlwy.net') && !connectionString.includes('.railway.internal');
+  // connectionString can be undefined in local/test contexts that never
+  // actually issue a query (e.g. requiring lib/rateLimit.js without a
+  // DATABASE_URL set) - only guard the SSL check, not construction itself,
+  // so importing this module doesn't crash before anything even connects.
+  const needsSSL = !!connectionString && connectionString.includes('rlwy.net') && !connectionString.includes('.railway.internal');
   return new Pool({
     connectionString,
     ssl: needsSSL ? { rejectUnauthorized: false } : false,
@@ -208,8 +212,10 @@ ALTER TABLE exams ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) 
 ALTER TABLE countdowns ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE agent_status ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 ALTER TABLE todos ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE calendar_sources ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE webauthn_credentials ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+-- calendar_sources/webauthn_credentials don't exist yet at this point in the
+-- script (they're created further down) - their user_id columns are added
+-- right after each CREATE TABLE instead, so this file can also run
+-- top-to-bottom against a brand-new, empty database.
 
 -- Now Playing feature was scrapped (2026-07-28) - iOS background execution limits
 -- meant it could never be truly real-time, and that was the whole point. Dropping
@@ -230,6 +236,7 @@ CREATE TABLE IF NOT EXISTS webauthn_credentials (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_used_at TIMESTAMPTZ
 );
+ALTER TABLE webauthn_credentials ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 
 -- Minimal OAuth 2.1 + dynamic client registration (RFC 7591) so the MCP endpoint at
 -- /mcp can be added as a custom connector in claude.ai - its connector setup performs
@@ -264,6 +271,7 @@ CREATE TABLE IF NOT EXISTS calendar_sources (
   ics_url TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE calendar_sources ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
 
 -- One-off migration bookkeeping - see seedLegacyCalendarSources() below.
 CREATE TABLE IF NOT EXISTS app_meta (
@@ -300,6 +308,18 @@ CREATE TABLE IF NOT EXISTS favorite_teams (
   team_logo TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, league, team_id)
+);
+
+-- Backs lib/rateLimit.js's fixed-window counters (login/signup/password-reset
+-- etc throttling). A row per "prefix:ip" bucket, in Postgres instead of an
+-- in-process Map, so limits survive a restart/redeploy and are shared across
+-- every instance of this app if it's ever scaled beyond one - reusing the
+-- database this app already treats as its one shared store (see error_log,
+-- oauth_tokens) instead of standing up Redis just for this.
+CREATE TABLE IF NOT EXISTS rate_limit_buckets (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL,
+  reset_at TIMESTAMPTZ NOT NULL
 );
 `;
 
